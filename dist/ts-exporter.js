@@ -260,7 +260,7 @@ class Converter {
         const propType = a.collection
             ? findModelName(a.collection)
             : a.model
-                ? (a.component ? findModelName(a.model) : `string | ${findModelName(a.model)}`)
+                ? (a.component ? findModelName(a.model) : `number | ${findModelName(a.model)}`)
                 : a.type
                     ? util.toPropertyType(interfaceName, name, a, this.config.enum)
                     : 'unknown';
