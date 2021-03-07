@@ -62,8 +62,5 @@ typings/
 
 # This repo
 tmp
-dist
-
-dist/
 
 src/test/out/
