@@ -249,20 +249,21 @@ class Converter {
     };
 
     const required = !a.required && !(!this.config.collectionCanBeUndefined && (a.collection || a.repeatable)) ? '?' : '';
+    const nullable = required === '?' ? 'null | ' : ''
     a = componentCompatible(a);
     const collection = a.collection ? '[]' : '';
 
     const propType = a.collection
       ? findModelName(a.collection)
       : a.model
-        ? findModelName(a.model)
+        ? `string | ${findModelName(a.model)}`
         : a.type
           ? util.toPropertyType(interfaceName, name, a, this.config.enum)
           : 'unknown';
 
     const fieldName = util.toPropertyName(name, interfaceName);
 
-    return `${fieldName}${required}: ${propType}${collection};`;
+    return `${fieldName}${required}: ${nullable}${propType}${collection};`;
   };
 
   /**
