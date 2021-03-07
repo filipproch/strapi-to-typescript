@@ -177,8 +177,8 @@ class Converter {
     result.push(`export interface ${m.interfaceName} {`);
 
     result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'id', {
-      type: 'string',
-      required: true
+      type: 'number',
+      required: false
     })}`);
 
     if (m.attributes) for (const aName in m.attributes) {
@@ -256,7 +256,7 @@ class Converter {
     const propType = a.collection
       ? findModelName(a.collection)
       : a.model
-        ? `string | ${findModelName(a.model)}`
+        ? (a.component ? findModelName(a.model) : `string | ${findModelName(a.model)}`)
         : a.type
           ? util.toPropertyType(interfaceName, name, a, this.config.enum)
           : 'unknown';
