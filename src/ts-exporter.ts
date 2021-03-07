@@ -178,7 +178,7 @@ class Converter {
 
     result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'id', {
       type: 'number',
-      required: false
+      required: true
     })}`);
 
     if (m.attributes) for (const aName in m.attributes) {
