@@ -181,6 +181,17 @@ class Converter {
       required: true
     })}`);
 
+    if (m.options?.timestamps === true) {
+      result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'updated_at', {
+        type: 'date',
+        required: false
+      })}`);
+      result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'created_at', {
+        type: 'date',
+        required: true
+      })}`);
+    }
+
     if (m.attributes) for (const aName in m.attributes) {
       if ((util.excludeField && util.excludeField(m.interfaceName, aName)) || !m.attributes.hasOwnProperty(aName)) continue;
       result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, aName, m.attributes[aName])}`);
