@@ -177,7 +177,7 @@ class Converter {
     result.push(`export interface ${m.interfaceName} {`);
 
     result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'id', {
-      type: 'number',
+      type: 'StrapiID',
       required: true
     })}`);
 

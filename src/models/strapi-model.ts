@@ -3,7 +3,7 @@ export type StrapiType = 'string' | 'number' | 'boolean' | 'text' | 'date' | 'em
 export interface IStrapiModelAttribute {
   unique?: boolean;
   required?: boolean;
-  type?: StrapiType;
+  type?: StrapiType | 'StrapiID';
   default?: string | number | boolean;
   dominant?: boolean;
   collection?: string;
