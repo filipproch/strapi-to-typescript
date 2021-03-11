@@ -35,6 +35,8 @@ const util = {
    * @param enumm Use Enum type (or string literal types)
    */
   defaultToPropertyType: (interfaceName: string, fieldName: string, model: IStrapiModelAttribute, enumm: boolean) => {
+    if (model.type === 'StrapiID') return 'StrapiID';
+
     const pt = model.type ? model.type.toLowerCase() : 'any';
     switch (pt) {
       case 'text':
