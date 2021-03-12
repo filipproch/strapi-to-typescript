@@ -251,7 +251,11 @@ class Converter {
       useNumberInsteadOfModel: true,
     });
 
-    if (this.config.enum) result.push('', ...this.strapiModelAttributeToEnum(m.interfaceName, m.attributes));
+    if (this.config.enum) {
+      result.push('', ...this.strapiModelAttributeToEnum(m.interfaceName, m.attributes));
+    } else {
+      result.push('', ...this.strapiModelAttributeToType(m.interfaceName, m.attributes));
+    }
 
     return result.join('\n');
   };
@@ -331,7 +335,7 @@ class Converter {
       }
     } else {
       if (a.type !== undefined) {
-        propType = util.toPropertyType(interfaceName, name, a, this.config.enum);
+        propType = util.toPropertyType(interfaceName, name, a, true);
       } else {
         propType = 'unknown';
       }
@@ -361,6 +365,17 @@ class Converter {
       }
     }
     return enums
+  }
+
+  strapiModelAttributeToType(interfaceName: string, attributes: { [attr: string]: IStrapiModelAttribute }): string[] {
+    const types: string[] = []
+    for (const aName in attributes) {
+      if (!attributes.hasOwnProperty(aName)) continue;
+      if (attributes[aName].type === 'enumeration') {
+        types.push(`export type ${util.toEnumName(aName, interfaceName)} = ${attributes[aName].enum!.map(it => `'${it}'`).join(' | ')};`);
+      }
+    }
+    return types
   }
 
 }
