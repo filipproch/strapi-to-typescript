@@ -179,43 +179,73 @@ class Converter {
         });
     }
     strapiModelToInterface(m) {
-        var _a;
         const result = [];
         result.push(...this.strapiModelExtractImports(m));
         if (result.length > 0)
             result.push('');
-        result.push('/**');
-        result.push(` * Model definition for ${m.name}`);
-        result.push(' */');
-        result.push(`export interface ${m.interfaceName} {`);
-        result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'id', {
-            type: 'StrapiID',
-            required: true
-        })}`);
-        if (((_a = m.options) === null || _a === void 0 ? void 0 : _a.timestamps) === true) {
-            result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'updated_at', {
-                type: 'date',
-                required: false
+        const pushModel = (args) => {
+            var _a;
+            const { prefix = '', suffix = '', useNumberInsteadOfModel = false, } = args;
+            result.push('/**');
+            result.push(` * Model definition for ${m.name}`);
+            result.push(' */');
+            result.push(`export interface ${prefix}${m.interfaceName}${suffix} {`);
+            result.push(`  ${this.strapiModelAttributeToProperty({
+                interfaceName: m.interfaceName,
+                name: 'id',
+                a: {
+                    type: 'StrapiID',
+                    required: true
+                },
+                useNumberInsteadOfModel,
             })}`);
-            result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'created_at', {
-                type: 'date',
-                required: true
-            })}`);
-        }
-        if (m.attributes)
-            for (const aName in m.attributes) {
-                if ((util.excludeField && util.excludeField(m.interfaceName, aName)) || !m.attributes.hasOwnProperty(aName))
-                    continue;
-                result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, aName, m.attributes[aName])}`);
+            if (((_a = m.options) === null || _a === void 0 ? void 0 : _a.timestamps) === true) {
+                result.push(`  ${this.strapiModelAttributeToProperty({
+                    interfaceName: m.interfaceName,
+                    name: 'updated_at',
+                    a: {
+                        type: 'date',
+                        required: false
+                    },
+                    useNumberInsteadOfModel,
+                })}`);
+                result.push(`  ${this.strapiModelAttributeToProperty({
+                    interfaceName: m.interfaceName,
+                    name: 'created_at',
+                    a: {
+                        type: 'date',
+                        required: true
+                    },
+                    useNumberInsteadOfModel,
+                })}`);
             }
-        if (util.addField) {
-            let addFields = util.addField(m.interfaceName);
-            if (addFields && Array.isArray(addFields))
-                for (let f of addFields) {
-                    result.push(`  ${f.name}: ${f.type};`);
+            if (m.attributes)
+                for (const aName in m.attributes) {
+                    if ((util.excludeField && util.excludeField(m.interfaceName, aName)) || !m.attributes.hasOwnProperty(aName))
+                        continue;
+                    result.push(`  ${this.strapiModelAttributeToProperty({
+                        interfaceName: m.interfaceName,
+                        name: aName,
+                        a: m.attributes[aName],
+                        useNumberInsteadOfModel,
+                    })}`);
                 }
-        }
-        result.push('}');
+            if (util.addField) {
+                let addFields = util.addField(m.interfaceName);
+                if (addFields && Array.isArray(addFields))
+                    for (let f of addFields) {
+                        result.push(`  ${f.name}: ${f.type};`);
+                    }
+            }
+            result.push('}');
+        };
+        pushModel({
+            useNumberInsteadOfModel: false,
+        });
+        pushModel({
+            suffix: 'Query',
+            useNumberInsteadOfModel: true,
+        });
         if (this.config.enum)
             result.push('', ...this.strapiModelAttributeToEnum(m.interfaceName, m.attributes));
         return result.join('\n');
@@ -259,7 +289,9 @@ class Converter {
      * @param structure Overall output structure
      * @param enumm Use Enum type (or string literal types)
      */
-    strapiModelAttributeToProperty(interfaceName, name, a) {
+    strapiModelAttributeToProperty(args) {
+        const { interfaceName, name, a: attribute, useNumberInsteadOfModel, } = args;
+        let a = attribute;
         const findModelName = (n) => {
             const result = findModel(this.strapiModels, n);
             if (!result && n !== '*')
@@ -273,7 +305,7 @@ class Converter {
         const propType = a.collection
             ? findModelName(a.collection)
             : a.model
-                ? (a.component ? findModelName(a.model) : `number | ${findModelName(a.model)}`)
+                ? (a.component ? findModelName(a.model) : useNumberInsteadOfModel ? 'number' : `${findModelName(a.model)}`)
                 : a.type
                     ? util.toPropertyType(interfaceName, name, a, this.config.enum)
                     : 'unknown';

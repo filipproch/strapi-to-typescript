@@ -173,40 +173,81 @@ class Converter {
     result.push(...this.strapiModelExtractImports(m));
     if (result.length > 0) result.push('')
 
-    result.push('/**');
-    result.push(` * Model definition for ${m.name}`);
-    result.push(' */');
-    result.push(`export interface ${m.interfaceName} {`);
+    const pushModel = (args: {
+      prefix?: string
+      suffix?: string
+      useNumberInsteadOfModel?: boolean
+    }) => {
+      const {
+        prefix = '',
+        suffix = '',
+        useNumberInsteadOfModel = false,
+      } = args;
 
-    result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'id', {
-      type: 'StrapiID',
-      required: true
-    })}`);
+      result.push('/**');
+      result.push(` * Model definition for ${m.name}`);
+      result.push(' */');
+      result.push(`export interface ${prefix}${m.interfaceName}${suffix} {`);
 
-    if (m.options?.timestamps === true) {
-      result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'updated_at', {
-        type: 'date',
-        required: false
+      result.push(`  ${this.strapiModelAttributeToProperty({
+        interfaceName: m.interfaceName,
+        name: 'id', 
+        a: {
+          type: 'StrapiID',
+          required: true
+        },
+        useNumberInsteadOfModel,
       })}`);
-      result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, 'created_at', {
-        type: 'date',
-        required: true
-      })}`);
-    }
 
-    if (m.attributes) for (const aName in m.attributes) {
-      if ((util.excludeField && util.excludeField(m.interfaceName, aName)) || !m.attributes.hasOwnProperty(aName)) continue;
-      result.push(`  ${this.strapiModelAttributeToProperty(m.interfaceName, aName, m.attributes[aName])}`);
-    }
-
-    if (util.addField) {
-      let addFields = util.addField(m.interfaceName);
-      if (addFields && Array.isArray(addFields)) for (let f of addFields) {
-        result.push(`  ${f.name}: ${f.type};`)
+      if (m.options?.timestamps === true) {
+        result.push(`  ${this.strapiModelAttributeToProperty({
+          interfaceName: m.interfaceName,
+          name: 'updated_at',
+          a: {
+            type: 'date',
+            required: false
+          },
+          useNumberInsteadOfModel,
+        })}`);
+        result.push(`  ${this.strapiModelAttributeToProperty({
+          interfaceName: m.interfaceName,
+          name: 'created_at', 
+          a: {
+            type: 'date',
+            required: true
+          },
+          useNumberInsteadOfModel,
+        })}`);
       }
-    }
 
-    result.push('}');
+      if (m.attributes) for (const aName in m.attributes) {
+        if ((util.excludeField && util.excludeField(m.interfaceName, aName)) || !m.attributes.hasOwnProperty(aName)) continue;
+        result.push(`  ${this.strapiModelAttributeToProperty({
+          interfaceName: m.interfaceName,
+          name: aName,
+          a: m.attributes[aName],
+          useNumberInsteadOfModel,
+        })}`);
+      }
+
+      if (util.addField) {
+        let addFields = util.addField(m.interfaceName);
+        if (addFields && Array.isArray(addFields)) for (let f of addFields) {
+          result.push(`  ${f.name}: ${f.type};`)
+        }
+      }
+
+      result.push('}');
+    };
+
+    pushModel({
+      useNumberInsteadOfModel: false,
+    });
+
+    pushModel({ 
+      suffix: 'Query',
+      useNumberInsteadOfModel: true,
+    });
 
     if (this.config.enum) result.push('', ...this.strapiModelAttributeToEnum(m.interfaceName, m.attributes));
 
@@ -250,11 +291,20 @@ class Converter {
    * @param structure Overall output structure
    * @param enumm Use Enum type (or string literal types)
    */
-  strapiModelAttributeToProperty(
-    interfaceName: string,
-    name: string,
+  strapiModelAttributeToProperty(args: {
+    interfaceName: string
+    name: string
     a: IStrapiModelAttribute
-  ) {
+    useNumberInsteadOfModel: boolean
+  }) {
+    const { 
+      interfaceName,
+      name,
+      a: attribute,
+      useNumberInsteadOfModel,
+    } = args;
+    let a = attribute;
+    
     const findModelName = (n: string) => {
       const result = findModel(this.strapiModels, n);
       if (!result && n !== '*') console.debug(`type '${n}' unknown on ${interfaceName}[${name}] => fallback to 'any'. Add in the input arguments the folder that contains *.settings.json with info.name === '${n}'`)
@@ -269,7 +319,7 @@ class Converter {
     const propType = a.collection
       ? findModelName(a.collection)
       : a.model
-        ? (a.component ? findModelName(a.model) : `number | ${findModelName(a.model)}`)
+        ? (a.component ? findModelName(a.model) : useNumberInsteadOfModel ? 'number' : `${findModelName(a.model)}`)
         : a.type
           ? util.toPropertyType(interfaceName, name, a, this.config.enum)
           : 'unknown';
