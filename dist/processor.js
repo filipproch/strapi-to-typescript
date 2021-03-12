@@ -17,9 +17,16 @@ const logError = console.error;
 const exec = (options) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // find *.settings.json
-        const files = yield importer_1.findFilesFromMultipleDirectories(...options.input);
-        if (options.inputGroup)
-            files.push(...yield importer_1.findFiles(options.inputGroup, /.json/));
+        const files = (yield importer_1.findFilesFromMultipleDirectories(...options.input)).map((path) => ({
+            path,
+            type: 'api',
+        }));
+        if (options.inputGroup) {
+            files.push(...(yield importer_1.findFiles(options.inputGroup, /.json/)).map((path) => ({
+                path,
+                type: 'component',
+            })));
+        }
         // parse files to object
         const strapiModels = yield importer_1.importFiles(files);
         // build and write .ts

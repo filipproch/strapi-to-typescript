@@ -28,5 +28,6 @@ export interface IStrapiModel {
   options?: {
     timestamps: boolean;
   };
+  isComponent: boolean;
   attributes: { [attr: string]: IStrapiModelAttribute };
 }

@@ -96,7 +96,9 @@ const util = {
     },
     overrideToPropertyType: undefined,
     toPropertyType(interfaceName, fieldName, model, enumm) {
-        return this.overrideToPropertyType ? this.overrideToPropertyType(`${model.type}`, fieldName, interfaceName) || this.defaultToPropertyType(interfaceName, fieldName, model, enumm) : this.defaultToPropertyType(interfaceName, fieldName, model, enumm);
+        return this.overrideToPropertyType
+            ? this.overrideToPropertyType(`${model.type}`, fieldName, interfaceName) || this.defaultToPropertyType(interfaceName, fieldName, model, enumm)
+            : this.defaultToPropertyType(interfaceName, fieldName, model, enumm);
     },
     defaultToPropertyname(fieldName) {
         return fieldName;
@@ -302,13 +304,28 @@ class Converter {
         const nullable = required === '?' ? 'null | ' : '';
         a = componentCompatible(a);
         const collection = a.collection ? '[]' : '';
-        const propType = a.collection
-            ? findModelName(a.collection)
-            : a.model
-                ? (a.component ? findModelName(a.model) : useNumberInsteadOfModel ? 'number' : `${findModelName(a.model)}`)
-                : a.type
-                    ? util.toPropertyType(interfaceName, name, a, this.config.enum)
-                    : 'unknown';
+        let propType;
+        if (a.collection !== undefined) {
+            propType = findModelName(a.collection);
+        }
+        else if (a.model !== undefined) {
+            if (attribute.component !== undefined) {
+                propType = findModelName(a.model);
+            }
+            else {
+                propType = useNumberInsteadOfModel
+                    ? 'number'
+                    : `${findModelName(a.model)}`;
+            }
+        }
+        else {
+            if (a.type !== undefined) {
+                propType = util.toPropertyType(interfaceName, name, a, this.config.enum);
+            }
+            else {
+                propType = 'unknown';
+            }
+        }
         const fieldName = util.toPropertyName(name, interfaceName);
         return `${fieldName}${required}: ${nullable}${propType}${collection};`;
     }

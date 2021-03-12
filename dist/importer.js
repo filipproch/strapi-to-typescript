@@ -109,11 +109,14 @@ const importFiles = (files) => new Promise((resolve, reject) => {
     let pending = files.length;
     const results = [];
     const names = [];
-    files.forEach(f => fs.readFile(f, { encoding: 'utf8' }, (err, data) => {
+    files.forEach(f => fs.readFile(f.path, { encoding: 'utf8' }, (err, data) => {
         if (err)
             reject(err);
         pending--;
-        let strapiModel = Object.assign(JSON.parse(data), { _filename: f });
+        let strapiModel = Object.assign(JSON.parse(data), {
+            _filename: f.path,
+            isComponent: f.type === 'component',
+        });
         if (strapiModel.info && strapiModel.info.name) {
             let sameNameIndex = names.indexOf(strapiModel.info.name);
             if (sameNameIndex === -1) {

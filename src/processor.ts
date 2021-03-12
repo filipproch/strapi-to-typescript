@@ -8,8 +8,16 @@ const logError = console.error;
 export const exec = async (options: IConfigOptions) => {
   try{
     // find *.settings.json
-    const files = await findFilesFromMultipleDirectories(...options.input);
-    if(options.inputGroup) files.push(... await findFiles(options.inputGroup, /.json/));
+    const files: {path: string, type: 'api'|'component'}[] = (await findFilesFromMultipleDirectories(...options.input)).map((path) => ({
+      path,
+      type: 'api',
+    }));
+    if(options.inputGroup) {
+      files.push(...(await findFiles(options.inputGroup, /.json/)).map<{path: string, type: 'api'|'component'}>((path) => ({
+        path,
+        type: 'component',
+      })));
+    }
 
     // parse files to object
     const strapiModels = await importFiles(files);

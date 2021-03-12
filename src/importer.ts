@@ -90,7 +90,7 @@ export async function findFilesFromMultipleDirectories(...files: string[]): Prom
 
 /*
  */
-export const importFiles = (files: string[]) =>
+export const importFiles = (files: {path: string, type: 'api'|'component'}[]) =>
   new Promise<IStrapiModel[]>((resolve, reject) => {
 
     let pending = files.length;
@@ -98,12 +98,15 @@ export const importFiles = (files: string[]) =>
     const names: string[] = [];
 
     files.forEach(f =>
-      fs.readFile(f, { encoding: 'utf8' }, (err, data) => {
+      fs.readFile(f.path, { encoding: 'utf8' }, (err, data) => {
 
         if (err) reject(err);
         pending--;
 
-        let strapiModel = Object.assign(JSON.parse(data), { _filename: f })
+        let strapiModel = Object.assign(JSON.parse(data), { 
+          _filename: f.path,
+          isComponent: f.type === 'component',
+        })
         if (strapiModel.info && strapiModel.info.name) {
           let sameNameIndex = names.indexOf(strapiModel.info.name);
           if (sameNameIndex === -1) {
