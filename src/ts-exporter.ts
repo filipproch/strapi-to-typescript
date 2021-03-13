@@ -145,35 +145,40 @@ class Converter {
   }
 
   async run() {
-    return new Promise<number>((resolve, reject) => {
+    return new Promise<number>((resolve, _reject) => {
 
       // Write index.ts
-      const outputFile = path.resolve(this.config.output, 'index.ts');
-      const output = this.strapiModels
-        .map(s => (this.config.nested ? `export * from './${s.snakeName}/${s.snakeName}';` : `export * from './${s.snakeName}';`))
-        .sort()
-        .join('\n');
-      fs.writeFileSync(outputFile, output + '\n');
+      const outputFile = path.resolve(this.config.output, 'api-types.d.ts');
+      // const output = this.strapiModels
+      //   .map(s => (this.config.nested ? `export * from './${s.snakeName}/${s.snakeName}';` : `export * from './${s.snakeName}';`))
+      //   .sort()
+      //   .join('\n');
 
       // Write each interfaces
-      let count = this.strapiModels.length;
+      const declarations: string[] = [];
       this.strapiModels.forEach(g => {
         const folder = this.config.nested ? path.resolve(this.config.output, g.snakeName) : this.config.output;
         if (!fs.existsSync(folder)) fs.mkdirSync(folder);
-        fs.writeFile(path.resolve(folder, `${g.snakeName}.ts`), this.strapiModelToInterface(g), { encoding: 'utf8' }, (err) => {
-          count--;
-          if (err) reject(err);
-          if (count === 0) resolve(this.strapiModels.length);
-        });
+        declarations.push(this.strapiModelToInterface(g));
+        // fs.writeFile(path.resolve(folder, `${g.snakeName}.ts`), , { encoding: 'utf8' }, (err) => {
+        //   count--;
+        //   if (err) reject(err);
+        //   if (count === 0) resolve(this.strapiModels.length);
+        // });
       });
+
+      fs.writeFileSync(outputFile, declarations.join('\n\n') + '\n', { 
+        encoding: 'utf8',
+      });
+      resolve(this.strapiModels.length);
     })
   }
 
   strapiModelToInterface(m: IStrapiModelExtended) {
     const result: string[] = [];
 
-    result.push(...this.strapiModelExtractImports(m));
-    if (result.length > 0) result.push('')
+    //result.push(...this.strapiModelExtractImports(m));
+    //if (result.length > 0) result.push('')
 
     const pushModel = (args: {
       prefix?: string
@@ -189,7 +194,7 @@ class Converter {
       result.push('/**');
       result.push(` * Model definition for ${m.name}`);
       result.push(' */');
-      result.push(`export interface ${prefix}${m.interfaceName}${suffix} {`);
+      result.push(`declare type ${prefix}${m.interfaceName}${suffix} = {`);
 
       result.push(`  ${this.strapiModelAttributeToProperty({
         interfaceName: m.interfaceName,
@@ -311,10 +316,19 @@ class Converter {
     } = args;
     let a = attribute;
     
-    const findModelName = (n: string) => {
-      const result = findModel(this.strapiModels, n);
-      if (!result && n !== '*') console.debug(`type '${n}' unknown on ${interfaceName}[${name}] => fallback to 'any'. Add in the input arguments the folder that contains *.settings.json with info.name === '${n}'`)
-      return result ? result.interfaceName : 'any';
+    const findModelName = (model: string, opts?: {
+      useQuery?: boolean
+    }) => {
+      const {
+        useQuery = false
+      } = (opts ?? {});
+
+      const result = findModel(this.strapiModels, model);
+      if (!result && model !== '*') 
+        console.debug(`type '${model}' unknown on ${interfaceName}[${name}] => fallback to 'any'. Add in the input arguments the folder that contains *.settings.json with info.name === '${model}'`)
+      return result 
+        ? `${result.interfaceName}${useQuery ? 'Query' : ''}` 
+        : 'any';
     };
 
     const required = !a.required && !(!this.config.collectionCanBeUndefined && (a.collection || a.repeatable)) ? '?' : '';
@@ -324,10 +338,18 @@ class Converter {
 
     let propType: string;
     if (a.collection !== undefined) {
-      propType = findModelName(a.collection);
+      if (attribute.component !== undefined) {
+        propType = findModelName(a.collection, {
+          useQuery: useNumberInsteadOfModel,
+        });
+      } else {
+        propType = findModelName(a.collection);
+      }
     } else if(a.model !== undefined) {
       if (attribute.component !== undefined) {
-        propType = findModelName(a.model);
+        propType = findModelName(a.model, {
+          useQuery: useNumberInsteadOfModel,
+        });
       } else {
         propType = useNumberInsteadOfModel 
           ? 'number' 
@@ -357,7 +379,7 @@ class Converter {
     for (const aName in attributes) {
       if (!attributes.hasOwnProperty(aName)) continue;
       if (attributes[aName].type === 'enumeration') {
-        enums.push(`export enum ${util.toEnumName(aName, interfaceName)} {`);
+        enums.push(`declare enum ${util.toEnumName(aName, interfaceName)} {`);
         attributes[aName].enum!.forEach(e => {
           enums.push(`  ${e} = "${e}",`);
         })
@@ -372,7 +394,7 @@ class Converter {
     for (const aName in attributes) {
       if (!attributes.hasOwnProperty(aName)) continue;
       if (attributes[aName].type === 'enumeration') {
-        types.push(`export type ${util.toEnumName(aName, interfaceName)} = ${attributes[aName].enum!.map(it => `'${it}'`).join(' | ')};`);
+        types.push(`declare type ${util.toEnumName(aName, interfaceName)} = ${attributes[aName].enum!.map(it => `'${it}'`).join(' | ')};`);
       }
     }
     return types

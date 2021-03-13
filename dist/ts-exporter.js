@@ -155,43 +155,44 @@ class Converter {
     }
     run() {
         return __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve, _reject) => {
                 // Write index.ts
-                const outputFile = path.resolve(this.config.output, 'index.ts');
-                const output = this.strapiModels
-                    .map(s => (this.config.nested ? `export * from './${s.snakeName}/${s.snakeName}';` : `export * from './${s.snakeName}';`))
-                    .sort()
-                    .join('\n');
-                fs.writeFileSync(outputFile, output + '\n');
+                const outputFile = path.resolve(this.config.output, 'api-types.d.ts');
+                // const output = this.strapiModels
+                //   .map(s => (this.config.nested ? `export * from './${s.snakeName}/${s.snakeName}';` : `export * from './${s.snakeName}';`))
+                //   .sort()
+                //   .join('\n');
                 // Write each interfaces
-                let count = this.strapiModels.length;
+                const declarations = [];
                 this.strapiModels.forEach(g => {
                     const folder = this.config.nested ? path.resolve(this.config.output, g.snakeName) : this.config.output;
                     if (!fs.existsSync(folder))
                         fs.mkdirSync(folder);
-                    fs.writeFile(path.resolve(folder, `${g.snakeName}.ts`), this.strapiModelToInterface(g), { encoding: 'utf8' }, (err) => {
-                        count--;
-                        if (err)
-                            reject(err);
-                        if (count === 0)
-                            resolve(this.strapiModels.length);
-                    });
+                    declarations.push(this.strapiModelToInterface(g));
+                    // fs.writeFile(path.resolve(folder, `${g.snakeName}.ts`), , { encoding: 'utf8' }, (err) => {
+                    //   count--;
+                    //   if (err) reject(err);
+                    //   if (count === 0) resolve(this.strapiModels.length);
+                    // });
                 });
+                fs.writeFileSync(outputFile, declarations.join('\n\n') + '\n', {
+                    encoding: 'utf8',
+                });
+                resolve(this.strapiModels.length);
             });
         });
     }
     strapiModelToInterface(m) {
         const result = [];
-        result.push(...this.strapiModelExtractImports(m));
-        if (result.length > 0)
-            result.push('');
+        //result.push(...this.strapiModelExtractImports(m));
+        //if (result.length > 0) result.push('')
         const pushModel = (args) => {
             var _a;
             const { prefix = '', suffix = '', useNumberInsteadOfModel = false, } = args;
             result.push('/**');
             result.push(` * Model definition for ${m.name}`);
             result.push(' */');
-            result.push(`export interface ${prefix}${m.interfaceName}${suffix} {`);
+            result.push(`declare type ${prefix}${m.interfaceName}${suffix} = {`);
             result.push(`  ${this.strapiModelAttributeToProperty({
                 interfaceName: m.interfaceName,
                 name: 'id',
@@ -298,11 +299,14 @@ class Converter {
     strapiModelAttributeToProperty(args) {
         const { interfaceName, name, a: attribute, useNumberInsteadOfModel, } = args;
         let a = attribute;
-        const findModelName = (n) => {
-            const result = findModel(this.strapiModels, n);
-            if (!result && n !== '*')
-                console.debug(`type '${n}' unknown on ${interfaceName}[${name}] => fallback to 'any'. Add in the input arguments the folder that contains *.settings.json with info.name === '${n}'`);
-            return result ? result.interfaceName : 'any';
+        const findModelName = (model, opts) => {
+            const { useQuery = false } = (opts !== null && opts !== void 0 ? opts : {});
+            const result = findModel(this.strapiModels, model);
+            if (!result && model !== '*')
+                console.debug(`type '${model}' unknown on ${interfaceName}[${name}] => fallback to 'any'. Add in the input arguments the folder that contains *.settings.json with info.name === '${model}'`);
+            return result
+                ? `${result.interfaceName}${useQuery ? 'Query' : ''}`
+                : 'any';
         };
         const required = !a.required && !(!this.config.collectionCanBeUndefined && (a.collection || a.repeatable)) ? '?' : '';
         const nullable = required === '?' ? 'null | ' : '';
@@ -310,11 +314,20 @@ class Converter {
         const collection = a.collection ? '[]' : '';
         let propType;
         if (a.collection !== undefined) {
-            propType = findModelName(a.collection);
+            if (attribute.component !== undefined) {
+                propType = findModelName(a.collection, {
+                    useQuery: useNumberInsteadOfModel,
+                });
+            }
+            else {
+                propType = findModelName(a.collection);
+            }
         }
         else if (a.model !== undefined) {
             if (attribute.component !== undefined) {
-                propType = findModelName(a.model);
+                propType = findModelName(a.model, {
+                    useQuery: useNumberInsteadOfModel,
+                });
             }
             else {
                 propType = useNumberInsteadOfModel
@@ -346,7 +359,7 @@ class Converter {
             if (!attributes.hasOwnProperty(aName))
                 continue;
             if (attributes[aName].type === 'enumeration') {
-                enums.push(`export enum ${util.toEnumName(aName, interfaceName)} {`);
+                enums.push(`declare enum ${util.toEnumName(aName, interfaceName)} {`);
                 attributes[aName].enum.forEach(e => {
                     enums.push(`  ${e} = "${e}",`);
                 });
@@ -361,7 +374,7 @@ class Converter {
             if (!attributes.hasOwnProperty(aName))
                 continue;
             if (attributes[aName].type === 'enumeration') {
-                types.push(`export type ${util.toEnumName(aName, interfaceName)} = ${attributes[aName].enum.map(it => `'${it}'`).join(' | ')};`);
+                types.push(`declare type ${util.toEnumName(aName, interfaceName)} = ${attributes[aName].enum.map(it => `'${it}'`).join(' | ')};`);
             }
         }
         return types;
