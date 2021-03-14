@@ -308,8 +308,9 @@ class Converter {
                 ? `${result.interfaceName}${useQuery ? 'Query' : ''}`
                 : 'any';
         };
-        const required = !a.required && !(!this.config.collectionCanBeUndefined && (a.collection || a.repeatable)) ? '?' : '';
-        const nullable = required === '?' ? 'null | ' : '';
+        const isRequired = a.required || a.collection || a.repeatable || a.generated;
+        //const required = isRequired ? '' : '?';
+        const nullable = isRequired ? '' : 'null | ';
         a = componentCompatible(a);
         const collection = a.collection ? '[]' : '';
         let propType;
@@ -344,7 +345,7 @@ class Converter {
             }
         }
         const fieldName = util.toPropertyName(name, interfaceName);
-        return `${fieldName}${required}: ${nullable}${propType}${collection};`;
+        return `${fieldName}: ${nullable}${propType}${collection};`;
     }
     ;
     /**

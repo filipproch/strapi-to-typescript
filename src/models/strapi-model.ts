@@ -13,6 +13,7 @@ export interface IStrapiModelAttribute {
   enum?: string[];
   component?: string;
   repeatable?: boolean;
+  generated?: boolean
 }
 
 export interface IStrapiModel {
