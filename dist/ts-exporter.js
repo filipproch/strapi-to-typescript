@@ -335,7 +335,8 @@ class Converter {
         };
         const isRequired = a.required || a.collection || a.repeatable || (!makeGeneratedFieldsOptional && a.generated);
         //const required = isRequired ? '' : '?';
-        const nullable = isRequired ? '' : 'null | ';
+        const optional = makeGeneratedFieldsOptional && a.generated ? '?' : '';
+        const nullable = isRequired || a.generated ? '' : 'null | ';
         a = componentCompatible(a);
         const collection = a.collection ? '[]' : '';
         let propType;
@@ -370,7 +371,7 @@ class Converter {
             }
         }
         const fieldName = util.toPropertyName(name, interfaceName);
-        return `${fieldName}: ${nullable}${propType}${collection};`;
+        return `${fieldName}${optional}: ${nullable}${propType}${collection};`;
     }
     ;
     /**
