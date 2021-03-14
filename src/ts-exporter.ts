@@ -202,12 +202,14 @@ class Converter {
       suffix?: string
       useNumberInsteadOfModel?: boolean
       makeGeneratedFieldsOptional?: boolean
+      keepComponentCollections?: boolean
     }) => {
       const {
         prefix = '',
         suffix = '',
         useNumberInsteadOfModel = false,
         makeGeneratedFieldsOptional = false,
+        keepComponentCollections = true,
       } = args;
 
       result.push('/**');
@@ -258,7 +260,7 @@ class Converter {
           const attribute = m.attributes[aName];
           
           if (useNumberInsteadOfModel && (
-            (attribute.component && attribute.repeatable) || attribute.collection
+            (!keepComponentCollections && attribute.component && attribute.repeatable) || attribute.collection
           )) {
             continue;
           }
@@ -290,12 +292,14 @@ class Converter {
     pushModel({ 
       suffix: 'Query',
       useNumberInsteadOfModel: true,
+      keepComponentCollections: false,
     });
 
     pushModel({ 
       suffix: 'Input',
       useNumberInsteadOfModel: true,
       makeGeneratedFieldsOptional: true,
+      keepComponentCollections: true,
     });
 
     if (this.config.enum) {

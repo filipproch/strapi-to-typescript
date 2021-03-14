@@ -199,7 +199,7 @@ class Converter {
         //if (result.length > 0) result.push('')
         const pushModel = (args) => {
             var _a;
-            const { prefix = '', suffix = '', useNumberInsteadOfModel = false, makeGeneratedFieldsOptional = false, } = args;
+            const { prefix = '', suffix = '', useNumberInsteadOfModel = false, makeGeneratedFieldsOptional = false, keepComponentCollections = true, } = args;
             result.push('/**');
             result.push(` * Model ${suffix} definition for ${m.name}`);
             result.push(' */');
@@ -243,7 +243,7 @@ class Converter {
                     if ((util.excludeField && util.excludeField(m.interfaceName, aName)) || !m.attributes.hasOwnProperty(aName))
                         continue;
                     const attribute = m.attributes[aName];
-                    if (useNumberInsteadOfModel && ((attribute.component && attribute.repeatable) || attribute.collection)) {
+                    if (useNumberInsteadOfModel && ((!keepComponentCollections && attribute.component && attribute.repeatable) || attribute.collection)) {
                         continue;
                     }
                     result.push(`  ${this.strapiModelAttributeToProperty({
@@ -270,11 +270,13 @@ class Converter {
         pushModel({
             suffix: 'Query',
             useNumberInsteadOfModel: true,
+            keepComponentCollections: false,
         });
         pushModel({
             suffix: 'Input',
             useNumberInsteadOfModel: true,
             makeGeneratedFieldsOptional: true,
+            keepComponentCollections: true,
         });
         if (this.config.enum) {
             result.push('', ...this.strapiModelAttributeToEnum(m.interfaceName, m.attributes));
