@@ -215,18 +215,20 @@ class Converter {
       result.push(' */');
       result.push(`declare type ${prefix}${m.interfaceName}${suffix} = {`);
 
-      result.push(`  ${this.strapiModelAttributeToProperty({
-        interfaceName: m.interfaceName,
-        name: 'id', 
-        a: {
-          type: 'StrapiID',
-          required: true
-        },
-        useNumberInsteadOfModel,
-        makeGeneratedFieldsOptional,
-      })}`);
+      if (!makeGeneratedFieldsOptional) {
+        result.push(`  ${this.strapiModelAttributeToProperty({
+          interfaceName: m.interfaceName,
+          name: 'id', 
+          a: {
+            type: 'StrapiID',
+            required: true
+          },
+          useNumberInsteadOfModel,
+          makeGeneratedFieldsOptional,
+        })}`);
+      }
 
-      if (m.options?.timestamps === true) {
+      if (m.options?.timestamps === true && !makeGeneratedFieldsOptional) {
         result.push(`  ${this.strapiModelAttributeToProperty({
           interfaceName: m.interfaceName,
           name: 'updated_at',

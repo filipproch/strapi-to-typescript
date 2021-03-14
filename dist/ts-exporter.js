@@ -204,17 +204,19 @@ class Converter {
             result.push(` * Model ${suffix} definition for ${m.name}`);
             result.push(' */');
             result.push(`declare type ${prefix}${m.interfaceName}${suffix} = {`);
-            result.push(`  ${this.strapiModelAttributeToProperty({
-                interfaceName: m.interfaceName,
-                name: 'id',
-                a: {
-                    type: 'StrapiID',
-                    required: true
-                },
-                useNumberInsteadOfModel,
-                makeGeneratedFieldsOptional,
-            })}`);
-            if (((_a = m.options) === null || _a === void 0 ? void 0 : _a.timestamps) === true) {
+            if (!makeGeneratedFieldsOptional) {
+                result.push(`  ${this.strapiModelAttributeToProperty({
+                    interfaceName: m.interfaceName,
+                    name: 'id',
+                    a: {
+                        type: 'StrapiID',
+                        required: true
+                    },
+                    useNumberInsteadOfModel,
+                    makeGeneratedFieldsOptional,
+                })}`);
+            }
+            if (((_a = m.options) === null || _a === void 0 ? void 0 : _a.timestamps) === true && !makeGeneratedFieldsOptional) {
                 result.push(`  ${this.strapiModelAttributeToProperty({
                     interfaceName: m.interfaceName,
                     name: 'updated_at',
