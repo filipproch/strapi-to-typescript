@@ -32,6 +32,7 @@ exports.convert = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const pluralize_1 = require("pluralize");
+const change_case_1 = require("change-case");
 const util = {
     // InterfaceName
     defaultToInterfaceName: (name) => name ? `I${name.replace(/^./, (str) => str.toUpperCase()).replace(/[ ]+./g, (str) => str.trimLeft().toUpperCase()).replace(/\//g, '')}` : 'any',
@@ -146,11 +147,7 @@ class Converter {
         if (config.fieldName && typeof config.fieldName === 'function')
             util.overrideToPropertyName = config.fieldName;
         this.strapiModels = strapiModelsParse.map(m => {
-            return Object.assign(Object.assign({}, m), { name: m.info.name, snakeName: m.info.name
-                    .split(/(?=[A-Z])/)
-                    .join('-')
-                    .replace(/[\/\- ]+/g, "-")
-                    .toLowerCase(), interfaceName: util.toInterfaceName(m.info.name) });
+            return Object.assign(Object.assign({}, m), { name: m.info.name, snakeName: m._modelName, interfaceName: `I${change_case_1.pascalCase(m._modelName)}` });
         });
     }
     run() {
@@ -164,6 +161,12 @@ class Converter {
                 //   .join('\n');
                 // Write each interfaces
                 const declarations = [];
+                declarations.push(`
+      declare type IStrapiApiModels = ${this.strapiModels
+                    .filter((it) => !it.isComponent)
+                    .map((it) => `'${it._modelName}'`)
+                    .join(' | ')};
+      `);
                 this.strapiModels.forEach(g => {
                     const folder = this.config.nested ? path.resolve(this.config.output, g.snakeName) : this.config.output;
                     if (!fs.existsSync(folder))
@@ -188,9 +191,9 @@ class Converter {
         //if (result.length > 0) result.push('')
         const pushModel = (args) => {
             var _a;
-            const { prefix = '', suffix = '', useNumberInsteadOfModel = false, } = args;
+            const { prefix = '', suffix = '', useNumberInsteadOfModel = false, omitGeneratedFields = false, } = args;
             result.push('/**');
-            result.push(` * Model definition for ${m.name}`);
+            result.push(` * Model ${suffix} definition for ${m.name}`);
             result.push(' */');
             result.push(`declare type ${prefix}${m.interfaceName}${suffix} = {`);
             result.push(`  ${this.strapiModelAttributeToProperty({
@@ -222,10 +225,17 @@ class Converter {
                     useNumberInsteadOfModel,
                 })}`);
             }
-            if (m.attributes)
+            if (m.attributes) {
                 for (const aName in m.attributes) {
                     if ((util.excludeField && util.excludeField(m.interfaceName, aName)) || !m.attributes.hasOwnProperty(aName))
                         continue;
+                    const attribute = m.attributes[aName];
+                    if (useNumberInsteadOfModel && ((attribute.component && attribute.repeatable) || attribute.collection)) {
+                        continue;
+                    }
+                    if (omitGeneratedFields) {
+                        continue;
+                    }
                     result.push(`  ${this.strapiModelAttributeToProperty({
                         interfaceName: m.interfaceName,
                         name: aName,
@@ -233,6 +243,7 @@ class Converter {
                         useNumberInsteadOfModel,
                     })}`);
                 }
+            }
             if (util.addField) {
                 let addFields = util.addField(m.interfaceName);
                 if (addFields && Array.isArray(addFields))
@@ -248,6 +259,11 @@ class Converter {
         pushModel({
             suffix: 'Query',
             useNumberInsteadOfModel: true,
+        });
+        pushModel({
+            suffix: 'Input',
+            useNumberInsteadOfModel: true,
+            omitGeneratedFields: true,
         });
         if (this.config.enum) {
             result.push('', ...this.strapiModelAttributeToEnum(m.interfaceName, m.attributes));

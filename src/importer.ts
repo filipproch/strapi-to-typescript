@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { IStrapiModel } from './models/strapi-model';
+import { IStrapiModel, StrapiFile } from './models/strapi-model';
 
 /**
  * Recursively walk a directory asynchronously and obtain all file names (with full path).
@@ -90,7 +90,7 @@ export async function findFilesFromMultipleDirectories(...files: string[]): Prom
 
 /*
  */
-export const importFiles = (files: {path: string, type: 'api'|'component'}[]) =>
+export const importFiles = (files: StrapiFile[]) =>
   new Promise<IStrapiModel[]>((resolve, reject) => {
 
     let pending = files.length;
@@ -105,6 +105,7 @@ export const importFiles = (files: {path: string, type: 'api'|'component'}[]) =>
 
         let strapiModel = Object.assign(JSON.parse(data), { 
           _filename: f.path,
+          _modelName: f.modelName,
           isComponent: f.type === 'component',
         })
         if (strapiModel.info && strapiModel.info.name) {

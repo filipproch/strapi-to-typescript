@@ -1,6 +1,8 @@
 import { convert } from './ts-exporter';
 import { IConfigOptions } from '..';
 import { findFilesFromMultipleDirectories, importFiles, findFiles } from './importer';
+import { StrapiFile } from './models/strapi-model';
+import * as path from 'path';
 
 const log = console.log;
 const logError = console.error;
@@ -8,14 +10,16 @@ const logError = console.error;
 export const exec = async (options: IConfigOptions) => {
   try{
     // find *.settings.json
-    const files: {path: string, type: 'api'|'component'}[] = (await findFilesFromMultipleDirectories(...options.input)).map((path) => ({
-      path,
+    const files: StrapiFile[] = (await findFilesFromMultipleDirectories(...options.input)).map((filePath) => ({
+      path: filePath,
       type: 'api',
+      modelName: path.basename(filePath, '.settings.json'),
     }));
     if(options.inputGroup) {
-      files.push(...(await findFiles(options.inputGroup, /.json/)).map<{path: string, type: 'api'|'component'}>((path) => ({
-        path,
+      files.push(...(await findFiles(options.inputGroup, /.json/)).map<StrapiFile>((filePath) => ({
+        path: filePath,
         type: 'component',
+        modelName: path.basename(filePath, '.json'),
       })));
     }
 
@@ -30,3 +34,4 @@ export const exec = async (options: IConfigOptions) => {
     logError(e)
   }
 };
+

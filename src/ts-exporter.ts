@@ -3,6 +3,7 @@ import * as path from 'path';
 import { singular } from 'pluralize'
 import { IStrapiModel, IStrapiModelAttribute } from './models/strapi-model';
 import { IConfigOptions } from '..';
+import { pascalCase } from 'change-case';
 
 interface IStrapiModelExtended extends IStrapiModel {
   name: string;
@@ -133,12 +134,8 @@ class Converter {
       return {
         ...m,
         name: m.info.name,
-        snakeName: m.info.name
-          .split(/(?=[A-Z])/)
-          .join('-')
-          .replace(/[\/\- ]+/g, "-")
-          .toLowerCase(),
-        interfaceName: util.toInterfaceName(m.info.name)
+        snakeName: m._modelName,
+        interfaceName: `I${pascalCase(m._modelName)}`,
       }
     });
 
@@ -156,6 +153,16 @@ class Converter {
 
       // Write each interfaces
       const declarations: string[] = [];
+
+      declarations.push(`
+      declare type IStrapiApiModels = ${
+        this.strapiModels
+          .filter((it) => !it.isComponent)
+          .map((it) => `'${it._modelName}'`)
+          .join(' | ')
+      };
+      `)
+
       this.strapiModels.forEach(g => {
         const folder = this.config.nested ? path.resolve(this.config.output, g.snakeName) : this.config.output;
         if (!fs.existsSync(folder)) fs.mkdirSync(folder);
@@ -184,15 +191,17 @@ class Converter {
       prefix?: string
       suffix?: string
       useNumberInsteadOfModel?: boolean
+      omitGeneratedFields?: boolean
     }) => {
       const {
         prefix = '',
         suffix = '',
         useNumberInsteadOfModel = false,
+        omitGeneratedFields = false,
       } = args;
 
       result.push('/**');
-      result.push(` * Model definition for ${m.name}`);
+      result.push(` * Model ${suffix} definition for ${m.name}`);
       result.push(' */');
       result.push(`declare type ${prefix}${m.interfaceName}${suffix} = {`);
 
@@ -227,14 +236,29 @@ class Converter {
         })}`);
       }
 
-      if (m.attributes) for (const aName in m.attributes) {
-        if ((util.excludeField && util.excludeField(m.interfaceName, aName)) || !m.attributes.hasOwnProperty(aName)) continue;
-        result.push(`  ${this.strapiModelAttributeToProperty({
-          interfaceName: m.interfaceName,
-          name: aName,
-          a: m.attributes[aName],
-          useNumberInsteadOfModel,
-        })}`);
+      if (m.attributes) {
+        for (const aName in m.attributes) {
+          if ((util.excludeField && util.excludeField(m.interfaceName, aName)) || !m.attributes.hasOwnProperty(aName)) continue;
+          
+          const attribute = m.attributes[aName];
+          
+          if (useNumberInsteadOfModel && (
+            (attribute.component && attribute.repeatable) || attribute.collection
+          )) {
+            continue;
+          }
+
+          if (omitGeneratedFields) {
+            continue;
+          }
+  
+          result.push(`  ${this.strapiModelAttributeToProperty({
+            interfaceName: m.interfaceName,
+            name: aName,
+            a: m.attributes[aName],
+            useNumberInsteadOfModel,
+          })}`);
+        }
       }
 
       if (util.addField) {
@@ -254,6 +278,12 @@ class Converter {
     pushModel({ 
       suffix: 'Query',
       useNumberInsteadOfModel: true,
+    });
+
+    pushModel({ 
+      suffix: 'Input',
+      useNumberInsteadOfModel: true,
+      omitGeneratedFields: true,
     });
 
     if (this.config.enum) {

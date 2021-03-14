@@ -115,6 +115,7 @@ const importFiles = (files) => new Promise((resolve, reject) => {
         pending--;
         let strapiModel = Object.assign(JSON.parse(data), {
             _filename: f.path,
+            _modelName: f.modelName,
             isComponent: f.type === 'component',
         });
         if (strapiModel.info && strapiModel.info.name) {

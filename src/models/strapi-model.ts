@@ -1,3 +1,9 @@
+export type StrapiFile = {
+  path: string
+  type: 'api'|'component'
+  modelName: string
+};
+
 export type StrapiType = 'string' | 'number' | 'boolean' | 'text' | 'date' | 'email' | 'component' | 'enumeration';
 
 export interface IStrapiModelAttribute {
@@ -19,6 +25,7 @@ export interface IStrapiModelAttribute {
 export interface IStrapiModel {
   /** Not from Strapi, but is the filename on disk */
   _filename: string;
+  _modelName: string;
   connection: string;
   collectionName: string;
   info: {
