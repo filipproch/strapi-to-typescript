@@ -13,13 +13,13 @@ export const exec = async (options: IConfigOptions) => {
     const files: StrapiFile[] = (await findFilesFromMultipleDirectories(...options.input)).map((filePath) => ({
       path: filePath,
       type: 'api',
-      modelName: path.basename(filePath, '.settings.json'),
+      modelName: path.basename(filePath, '.settings.json').toLowerCase(),
     }));
     if(options.inputGroup) {
       files.push(...(await findFiles(options.inputGroup, /.json/)).map<StrapiFile>((filePath) => ({
         path: filePath,
         type: 'component',
-        modelName: path.basename(filePath, '.json'),
+        modelName: path.basename(filePath, '.json').toLowerCase(),
       })));
     }
 

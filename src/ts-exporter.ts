@@ -154,14 +154,24 @@ class Converter {
       // Write each interfaces
       const declarations: string[] = [];
 
-      declarations.push(`
-      declare type IStrapiApiModels = ${
+      declarations.push(`declare type AvailableStrapiApiModels = ${
         this.strapiModels
           .filter((it) => !it.isComponent)
           .map((it) => `'${it._modelName}'`)
           .join(' | ')
-      };
-      `)
+      };\n\n`)
+
+      declarations.push(`declare type StrapiApiModels = {
+        ${this.strapiModels
+            .filter((it) => !it.isComponent)
+            .map((it) => `'${it._modelName}': {
+              Model: ${it.interfaceName}
+              Query: ${it.interfaceName}Query
+              Input: ${it.interfaceName}Input
+            }`)
+            .join('\n')
+        }
+      };\n\n`)
 
       this.strapiModels.forEach(g => {
         const folder = this.config.nested ? path.resolve(this.config.output, g.snakeName) : this.config.output;
