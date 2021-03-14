@@ -31,7 +31,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.convert = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const pluralize_1 = require("pluralize");
 const change_case_1 = require("change-case");
 const util = {
     // InterfaceName
@@ -112,7 +111,7 @@ const util = {
     addField: undefined,
 };
 const findModel = (structure, name) => {
-    return structure.filter((s) => s.name.toLowerCase() === name || s.snakeName === name).shift();
+    return structure.filter((s) => s._modelName === name).shift();
 };
 /**
  * Transform a Strapi Attribute of component.
@@ -121,7 +120,7 @@ const findModel = (structure, name) => {
  */
 const componentCompatible = (attr) => {
     if (attr.type === 'component') {
-        let model = pluralize_1.singular(attr.component.split('.')[1]);
+        let model = attr.component.split('.')[1]; //singular()
         return attr.repeatable ? { collection: model } : { model: model };
     }
     return attr;

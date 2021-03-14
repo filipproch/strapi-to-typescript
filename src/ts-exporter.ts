@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { singular } from 'pluralize'
+//import { singular } from 'pluralize'
 import { IStrapiModel, IStrapiModelAttribute } from './models/strapi-model';
 import { IConfigOptions } from '..';
 import { pascalCase } from 'change-case';
@@ -97,7 +97,7 @@ const util = {
 }
 
 const findModel = (structure: IStrapiModelExtended[], name: string): IStrapiModelExtended | undefined => {
-  return structure.filter((s) => s.name.toLowerCase() === name || s.snakeName === name).shift();
+  return structure.filter((s) => s._modelName === name).shift();
 };
 
 /**
@@ -107,7 +107,7 @@ const findModel = (structure: IStrapiModelExtended[], name: string): IStrapiMode
  */
 const componentCompatible = (attr: IStrapiModelAttribute) => {
   if (attr.type === 'component'){
-    let model = singular(attr.component!.split('.')[1])
+    let model = attr.component!.split('.')[1];//singular()
     return attr.repeatable ? { collection: model } : { model: model }
   }
   return attr;
