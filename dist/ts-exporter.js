@@ -209,7 +209,7 @@ class Converter {
                     name: 'id',
                     a: {
                         type: 'StrapiID',
-                        required: makeGeneratedFieldsOptional,
+                        required: !makeGeneratedFieldsOptional,
                     },
                     useNumberInsteadOfModel,
                     makeGeneratedFieldsOptional,
