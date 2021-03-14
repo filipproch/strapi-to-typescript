@@ -201,13 +201,13 @@ class Converter {
       prefix?: string
       suffix?: string
       useNumberInsteadOfModel?: boolean
-      omitGeneratedFields?: boolean
+      makeGeneratedFieldsOptional?: boolean
     }) => {
       const {
         prefix = '',
         suffix = '',
         useNumberInsteadOfModel = false,
-        omitGeneratedFields = false,
+        makeGeneratedFieldsOptional = false,
       } = args;
 
       result.push('/**');
@@ -223,6 +223,7 @@ class Converter {
           required: true
         },
         useNumberInsteadOfModel,
+        makeGeneratedFieldsOptional,
       })}`);
 
       if (m.options?.timestamps === true) {
@@ -234,6 +235,7 @@ class Converter {
             required: false
           },
           useNumberInsteadOfModel,
+          makeGeneratedFieldsOptional,
         })}`);
         result.push(`  ${this.strapiModelAttributeToProperty({
           interfaceName: m.interfaceName,
@@ -243,6 +245,7 @@ class Converter {
             required: true
           },
           useNumberInsteadOfModel,
+          makeGeneratedFieldsOptional,
         })}`);
       }
 
@@ -257,16 +260,13 @@ class Converter {
           )) {
             continue;
           }
-
-          if (omitGeneratedFields && attribute.generated) {
-            continue;
-          }
   
           result.push(`  ${this.strapiModelAttributeToProperty({
             interfaceName: m.interfaceName,
             name: aName,
             a: m.attributes[aName],
             useNumberInsteadOfModel,
+            makeGeneratedFieldsOptional,
           })}`);
         }
       }
@@ -293,7 +293,7 @@ class Converter {
     pushModel({ 
       suffix: 'Input',
       useNumberInsteadOfModel: true,
-      omitGeneratedFields: true,
+      makeGeneratedFieldsOptional: true,
     });
 
     if (this.config.enum) {
@@ -347,12 +347,14 @@ class Converter {
     name: string
     a: IStrapiModelAttribute
     useNumberInsteadOfModel: boolean
+    makeGeneratedFieldsOptional: boolean
   }) {
     const { 
       interfaceName,
       name,
       a: attribute,
       useNumberInsteadOfModel,
+      makeGeneratedFieldsOptional,
     } = args;
     let a = attribute;
     
@@ -371,7 +373,7 @@ class Converter {
         : 'any';
     };
 
-    const isRequired = a.required || a.collection || a.repeatable || a.generated;
+    const isRequired = a.required || a.collection || a.repeatable || (!makeGeneratedFieldsOptional && a.generated);
 
     //const required = isRequired ? '' : '?';
     const nullable = isRequired ? '' : 'null | ';

@@ -199,7 +199,7 @@ class Converter {
         //if (result.length > 0) result.push('')
         const pushModel = (args) => {
             var _a;
-            const { prefix = '', suffix = '', useNumberInsteadOfModel = false, omitGeneratedFields = false, } = args;
+            const { prefix = '', suffix = '', useNumberInsteadOfModel = false, makeGeneratedFieldsOptional = false, } = args;
             result.push('/**');
             result.push(` * Model ${suffix} definition for ${m.name}`);
             result.push(' */');
@@ -212,6 +212,7 @@ class Converter {
                     required: true
                 },
                 useNumberInsteadOfModel,
+                makeGeneratedFieldsOptional,
             })}`);
             if (((_a = m.options) === null || _a === void 0 ? void 0 : _a.timestamps) === true) {
                 result.push(`  ${this.strapiModelAttributeToProperty({
@@ -222,6 +223,7 @@ class Converter {
                         required: false
                     },
                     useNumberInsteadOfModel,
+                    makeGeneratedFieldsOptional,
                 })}`);
                 result.push(`  ${this.strapiModelAttributeToProperty({
                     interfaceName: m.interfaceName,
@@ -231,6 +233,7 @@ class Converter {
                         required: true
                     },
                     useNumberInsteadOfModel,
+                    makeGeneratedFieldsOptional,
                 })}`);
             }
             if (m.attributes) {
@@ -241,14 +244,12 @@ class Converter {
                     if (useNumberInsteadOfModel && ((attribute.component && attribute.repeatable) || attribute.collection)) {
                         continue;
                     }
-                    if (omitGeneratedFields && attribute.generated) {
-                        continue;
-                    }
                     result.push(`  ${this.strapiModelAttributeToProperty({
                         interfaceName: m.interfaceName,
                         name: aName,
                         a: m.attributes[aName],
                         useNumberInsteadOfModel,
+                        makeGeneratedFieldsOptional,
                     })}`);
                 }
             }
@@ -271,7 +272,7 @@ class Converter {
         pushModel({
             suffix: 'Input',
             useNumberInsteadOfModel: true,
-            omitGeneratedFields: true,
+            makeGeneratedFieldsOptional: true,
         });
         if (this.config.enum) {
             result.push('', ...this.strapiModelAttributeToEnum(m.interfaceName, m.attributes));
@@ -321,7 +322,7 @@ class Converter {
      * @param enumm Use Enum type (or string literal types)
      */
     strapiModelAttributeToProperty(args) {
-        const { interfaceName, name, a: attribute, useNumberInsteadOfModel, } = args;
+        const { interfaceName, name, a: attribute, useNumberInsteadOfModel, makeGeneratedFieldsOptional, } = args;
         let a = attribute;
         const findModelName = (model, opts) => {
             const { useQuery = false } = (opts !== null && opts !== void 0 ? opts : {});
@@ -332,7 +333,7 @@ class Converter {
                 ? `${result.interfaceName}${useQuery ? 'Query' : ''}`
                 : 'any';
         };
-        const isRequired = a.required || a.collection || a.repeatable || a.generated;
+        const isRequired = a.required || a.collection || a.repeatable || (!makeGeneratedFieldsOptional && a.generated);
         //const required = isRequired ? '' : '?';
         const nullable = isRequired ? '' : 'null | ';
         a = componentCompatible(a);
