@@ -217,13 +217,13 @@ class Converter {
       result.push(' */');
       result.push(`declare type ${prefix}${m.interfaceName}${suffix} = {`);
 
-      if (!makeGeneratedFieldsOptional) {
+      if (makeGeneratedFieldsOptional === false || m.isComponent) {
         result.push(`  ${this.strapiModelAttributeToProperty({
           interfaceName: m.interfaceName,
           name: 'id', 
           a: {
             type: 'StrapiID',
-            required: true
+            required: makeGeneratedFieldsOptional,
           },
           useNumberInsteadOfModel,
           makeGeneratedFieldsOptional,
