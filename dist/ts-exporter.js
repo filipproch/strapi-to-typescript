@@ -241,7 +241,7 @@ class Converter {
                     if (useNumberInsteadOfModel && ((attribute.component && attribute.repeatable) || attribute.collection)) {
                         continue;
                     }
-                    if (omitGeneratedFields) {
+                    if (omitGeneratedFields && attribute.generated) {
                         continue;
                     }
                     result.push(`  ${this.strapiModelAttributeToProperty({

@@ -258,7 +258,7 @@ class Converter {
             continue;
           }
 
-          if (omitGeneratedFields) {
+          if (omitGeneratedFields && attribute.generated) {
             continue;
           }
   
