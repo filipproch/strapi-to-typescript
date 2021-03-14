@@ -388,8 +388,8 @@ class Converter {
     const isRequired = a.required || a.collection || a.repeatable || (!makeGeneratedFieldsOptional && a.generated);
 
     //const required = isRequired ? '' : '?';
-    const optional = makeGeneratedFieldsOptional && a.generated ? '?' : '';
-    const nullable = isRequired || a.generated ? '' : 'null | ';
+    const optional = makeGeneratedFieldsOptional && a.generated !== undefined ? '?' : '';
+    const nullable = isRequired || (a.generated === true) ? '' : 'null | ';
 
     a = componentCompatible(a);
     const collection = a.collection ? '[]' : '';
