@@ -227,6 +227,8 @@ class Converter {
           },
           useNumberInsteadOfModel,
           makeGeneratedFieldsOptional,
+          interfacePrefix: '',
+          interfaceSuffix: '',
         })}`);
       }
 
@@ -240,6 +242,8 @@ class Converter {
           },
           useNumberInsteadOfModel,
           makeGeneratedFieldsOptional,
+          interfacePrefix: '',
+          interfaceSuffix: '',
         })}`);
         result.push(`  ${this.strapiModelAttributeToProperty({
           interfaceName: m.interfaceName,
@@ -250,6 +254,8 @@ class Converter {
           },
           useNumberInsteadOfModel,
           makeGeneratedFieldsOptional,
+          interfacePrefix: '',
+          interfaceSuffix: '',
         })}`);
       }
 
@@ -271,6 +277,8 @@ class Converter {
             a: m.attributes[aName],
             useNumberInsteadOfModel,
             makeGeneratedFieldsOptional,
+            interfacePrefix: prefix,
+            interfaceSuffix: suffix,
           })}`);
         }
       }
@@ -354,6 +362,8 @@ class Converter {
     a: IStrapiModelAttribute
     useNumberInsteadOfModel: boolean
     makeGeneratedFieldsOptional: boolean
+    interfacePrefix: string
+    interfaceSuffix: string
   }) {
     const { 
       interfaceName,
@@ -361,21 +371,17 @@ class Converter {
       a: attribute,
       useNumberInsteadOfModel,
       makeGeneratedFieldsOptional,
+      interfacePrefix,
+      interfaceSuffix,
     } = args;
     let a = attribute;
     
-    const findModelName = (model: string, opts?: {
-      useQuery?: boolean
-    }) => {
-      const {
-        useQuery = false
-      } = (opts ?? {});
-
+    const findModelName = (model: string) => {
       const result = findModel(this.strapiModels, model);
       if (!result && model !== '*') 
         console.debug(`type '${model}' unknown on ${interfaceName}[${name}] => fallback to 'any'. Add in the input arguments the folder that contains *.settings.json with info.name === '${model}'`)
       return result 
-        ? `${result.interfaceName}${useQuery ? 'Query' : ''}` 
+        ? `${interfacePrefix}${result.interfaceName}${interfaceSuffix}` 
         : 'any';
     };
 
@@ -393,9 +399,7 @@ class Converter {
       if (attribute.component !== undefined) {
         propType = findModelName(a.collection);
       } else {
-        propType = findModelName(a.collection, {
-          useQuery: useNumberInsteadOfModel,
-        });
+        propType = findModelName(a.collection);
       }
     } else if(a.model !== undefined) {
       if (attribute.component !== undefined) {
