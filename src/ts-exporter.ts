@@ -391,17 +391,15 @@ class Converter {
     let propType: string;
     if (a.collection !== undefined) {
       if (attribute.component !== undefined) {
+        propType = findModelName(a.collection);
+      } else {
         propType = findModelName(a.collection, {
           useQuery: useNumberInsteadOfModel,
         });
-      } else {
-        propType = findModelName(a.collection);
       }
     } else if(a.model !== undefined) {
       if (attribute.component !== undefined) {
-        propType = findModelName(a.model, {
-          useQuery: useNumberInsteadOfModel,
-        });
+        propType = findModelName(a.model);
       } else {
         propType = useNumberInsteadOfModel 
           ? 'number' 
