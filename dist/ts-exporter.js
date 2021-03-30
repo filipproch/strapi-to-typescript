@@ -365,7 +365,7 @@ class Converter {
             else {
                 propType = useNumberInsteadOfModel
                     ? 'number'
-                    : `${findModelName(a.model)}`;
+                    : `${findModelName(a.model)} | number`;
             }
         }
         else {
