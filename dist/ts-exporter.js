@@ -49,8 +49,8 @@ const Utils = {
             ? `I${def.enumName}`
             : `${interfaceName}${fieldName.replace(/^./, (str) => str.toUpperCase())}`;
     },
-    dynamicZoneTypeName(fieldName, interfaceName) {
-        return `${interfaceName}${fieldName.replace(/^./, (str) => str.toUpperCase())}DynamicZone`;
+    dynamicZoneTypeName(fieldName, interfaceName, suffix) {
+        return `${interfaceName}${fieldName.replace(/^./, (str) => str.toUpperCase())}DynamicZone${suffix}`;
     },
     propertyTypeForStrapiType: (type) => {
         switch (type) {
@@ -149,7 +149,7 @@ const strapiModelToInterface = (args) => {
     const result = [];
     const pushModel = (args) => {
         var _a;
-        const { prefix = '', suffix = '', useNumberInsteadOfModel = false, makeGeneratedFieldsOptional = false, keepComponentCollections = true, } = args;
+        const { prefix = '', suffix = '', useNumberInsteadOfModel = false, makeGeneratedFieldsOptional = false, keepComponentCollections = true, skipDynamicZone = false, } = args;
         result.push('/**');
         result.push(` * Model ${suffix} definition for ${strapiModel.name}`);
         result.push(' */');
@@ -206,6 +206,9 @@ const strapiModelToInterface = (args) => {
                 if (useNumberInsteadOfModel && ((!keepComponentCollections && strapi_model_1.strapiAttributeIsComponent(attribute) && attribute.repeatable) || strapi_model_1.strapiAttributeIsCollection(attribute))) {
                     continue;
                 }
+                if (skipDynamicZone && strapi_model_1.strapiAttributeIsTyped(attribute) && attribute.type === 'dynamiczone') {
+                    continue;
+                }
                 result.push(`  ${strapiModelAttributeToProperty({
                     type: 'from-strapi',
                     definition: attributes[aName],
@@ -243,8 +246,38 @@ const strapiModelToInterface = (args) => {
         makeGeneratedFieldsOptional: true,
         keepComponentCollections: true,
     });
-    result.push('', ...strapiModelAttributeToType(strapiModel, modelMap));
+    const attributes = strapiModel.definition.attributes;
+    for (const aName in attributes) {
+        if (!attributes.hasOwnProperty(aName))
+            continue;
+        const attribute = attributes[aName];
+        if (!strapi_model_1.strapiAttributeIsTyped(attribute))
+            continue;
+        if (attribute.type === 'enumeration') {
+            result.push(`declare type ${Utils.toEnumerationName(attribute, aName, strapiModel.typeName)} = ${attribute.enum.map(it => `'${it}'`).join(' | ')};`);
+        }
+        if (attribute.type === 'dynamiczone') {
+            result.push(dynamicZoneUnionType({
+                components: attribute.components,
+                strapiModel,
+                attributeName: aName,
+                modelMap,
+                suffix: '',
+            }));
+            result.push(dynamicZoneUnionType({
+                components: attribute.components,
+                strapiModel,
+                attributeName: aName,
+                modelMap,
+                suffix: 'Input',
+            }));
+        }
+    }
     return result.join('\n');
+};
+const dynamicZoneUnionType = (args) => {
+    const componentTypes = args.components.map((it) => { var _a; return `({ __component: '${it}' } & ${(_a = args.modelMap.typeForComponent(it)) === null || _a === void 0 ? void 0 : _a.typeName}${args.suffix})`; });
+    return `declare type ${Utils.dynamicZoneTypeName(args.attributeName, args.strapiModel.typeName, args.suffix)} = ${componentTypes.join(' | ')};`;
 };
 const printTypescriptProperty = (args) => {
     const parts = [];
@@ -315,7 +348,7 @@ const strapiModelAttributeToProperty = (data, config) => {
                     required = def.required === true;
                     break;
                 case 'dynamiczone':
-                    type = Utils.dynamicZoneTypeName(name, interfaceName);
+                    type = Utils.dynamicZoneTypeName(name, interfaceName, interfaceSuffix);
                     collection = true;
                     required = def.required === true;
                     break;
@@ -339,48 +372,5 @@ const strapiModelAttributeToProperty = (data, config) => {
         optional,
         nullable: !required,
     });
-    // let propType: string;
-    // if (a.collection !== undefined) {
-    //   if (attribute.component !== undefined) {
-    //     propType = findModelName(a.collection);
-    //   } else {
-    //     propType = findModelName(a.collection);
-    //   }
-    // } else if(a.model !== undefined) {
-    //   if (attribute.component !== undefined) {
-    //     propType = findModelName(a.model);
-    //   } else {
-    //     propType = useNumberInsteadOfModel 
-    //       ? 'number' 
-    //       : `${findModelName(a.model)} | number`;
-    //   }
-    // } else {
-    //   if (a.type !== undefined) {
-    //     propType = Utils.toPropertyType(interfaceName, name, a, true);
-    //   } else {
-    //     propType = 'unknown';
-    //   }
-    // }
-    // const fieldName = Utils.toPropertyName(name, interfaceName);
-    // return `${fieldName}${optional}: ${nullable}${propType}${collection};`;
-};
-const strapiModelAttributeToType = (strapiModel, modelMap) => {
-    const types = [];
-    const attributes = strapiModel.definition.attributes;
-    for (const aName in attributes) {
-        if (!attributes.hasOwnProperty(aName))
-            continue;
-        const attribute = attributes[aName];
-        if (!strapi_model_1.strapiAttributeIsTyped(attribute))
-            continue;
-        if (attribute.type === 'enumeration') {
-            types.push(`declare type ${Utils.toEnumerationName(attribute, aName, strapiModel.typeName)} = ${attribute.enum.map(it => `'${it}'`).join(' | ')};`);
-        }
-        if (attribute.type === 'dynamiczone') {
-            const componentTypes = attribute.components.map((it) => { var _a; return `({ __component: '${it}' } & ${(_a = modelMap.typeForComponent(it)) === null || _a === void 0 ? void 0 : _a.typeName})`; });
-            types.push(`declare type ${Utils.dynamicZoneTypeName(aName, strapiModel.typeName)} = ${componentTypes.join(' | ')};`);
-        }
-    }
-    return types;
 };
 //# sourceMappingURL=ts-exporter.js.map
