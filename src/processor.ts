@@ -19,6 +19,7 @@ export const exec = async (options: IConfigOptions) => {
       files.push(...(await findFiles(options.inputGroup, /.json/)).map<StrapiFile>((filePath) => ({
         path: filePath,
         type: 'component',
+        categoryName: path.basename(path.dirname(filePath)),
         modelName: path.basename(filePath, '.json').toLowerCase(),
       })));
     }

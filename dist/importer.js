@@ -108,30 +108,15 @@ exports.findFilesFromMultipleDirectories = findFilesFromMultipleDirectories;
 const importFiles = (files) => new Promise((resolve, reject) => {
     let pending = files.length;
     const results = [];
-    const names = [];
     files.forEach(f => fs.readFile(f.path, { encoding: 'utf8' }, (err, data) => {
         if (err)
             reject(err);
         pending--;
-        let strapiModel = Object.assign(JSON.parse(data), {
-            _filename: f.path,
-            _modelName: f.modelName,
-            isComponent: f.type === 'component',
+        const strapiDef = Object.assign(JSON.parse(data));
+        results.push({
+            file: f,
+            definition: strapiDef,
         });
-        if (strapiModel.info && strapiModel.info.name) {
-            let sameNameIndex = names.indexOf(strapiModel.info.name);
-            if (sameNameIndex === -1) {
-                results.push(strapiModel);
-                names.push(strapiModel.info.name);
-            }
-            else {
-                console.warn(`Already have model '${strapiModel.info.name}' => skip ${results[sameNameIndex]._filename} use ${strapiModel._filename}`);
-                results[sameNameIndex] = strapiModel;
-            }
-        }
-        else {
-            results.push(strapiModel);
-        }
         if (pending === 0) {
             resolve(results);
         }

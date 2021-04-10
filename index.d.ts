@@ -7,8 +7,6 @@ export interface ICommandOptions {
     output: string;
     /** Put all interfaces in a nested tree instead of directly under the output folder */
     nested: boolean;
-    /** Generate enumeration */
-    enum: boolean;
     /** By default, all collection can not be undefined. You can turn this off, so only unrequired collections may be undefined. */
     collectionCanBeUndefined: boolean
 
@@ -26,11 +24,6 @@ export interface IConfigOptions extends ICommandOptions {
      *      (fieldType) => { if(fieldType == 'datetime') return 'string'}
      */
     fieldType: (fieldType: string, fieldName: string, interfaceName: string) => string | undefined;
-
-    /**
-     * @deprecated use fieldType
-     */
-    type: (fieldType: string, fieldName: string, interfaceName: string) => string | undefined;
 
     /**
      * Model Strapi attributes name => name of field.

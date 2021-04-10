@@ -46,6 +46,7 @@ const exec = (options) => __awaiter(void 0, void 0, void 0, function* () {
             files.push(...(yield importer_1.findFiles(options.inputGroup, /.json/)).map((filePath) => ({
                 path: filePath,
                 type: 'component',
+                categoryName: path.basename(path.dirname(filePath)),
                 modelName: path.basename(filePath, '.json').toLowerCase(),
             })));
         }

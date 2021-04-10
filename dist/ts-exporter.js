@@ -31,33 +31,29 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.convert = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+//import { singular } from 'pluralize'
+const strapi_model_1 = require("./models/strapi-model");
 const change_case_1 = require("change-case");
-const util = {
+const Utils = {
     // InterfaceName
-    defaultToInterfaceName: (name) => name ? `I${name.replace(/^./, (str) => str.toUpperCase()).replace(/[ ]+./g, (str) => str.trimLeft().toUpperCase()).replace(/\//g, '')}` : 'any',
-    overrideToInterfaceName: undefined,
     toInterfaceName(name) {
-        return util.overrideToInterfaceName ? util.overrideToInterfaceName(name) || util.defaultToInterfaceName(name) : this.defaultToInterfaceName(name);
+        return name
+            ? `I${name
+                .replace(/^./, (str) => str.toUpperCase())
+                .replace(/[ ]+./g, (str) => str.trimLeft().toUpperCase()).replace(/\//g, '')}`
+            : 'any';
     },
     // EnumName
-    defaultToEnumName: (name, interfaceName) => name ? `${interfaceName}${name.replace(/^./, (str) => str.toUpperCase())}` : 'any',
-    overrideToEnumName: undefined,
-    toEnumName(name, interfaceName) {
-        return this.overrideToEnumName ? this.overrideToEnumName(name, interfaceName) || this.defaultToEnumName(name, interfaceName) : this.defaultToEnumName(name, interfaceName);
+    toEnumerationName(def, fieldName, interfaceName) {
+        return def.enumName
+            ? `I${def.enumName}`
+            : `${interfaceName}${fieldName.replace(/^./, (str) => str.toUpperCase())}`;
     },
-    /**
-     * Convert a Strapi type to a TypeScript type.
-     *
-     * @param interfaceName name of current interface
-     * @param fieldName name of the field
-     * @param model Strapi type
-     * @param enumm Use Enum type (or string literal types)
-     */
-    defaultToPropertyType: (interfaceName, fieldName, model, enumm) => {
-        if (model.type === 'StrapiID')
-            return 'StrapiID';
-        const pt = model.type ? model.type.toLowerCase() : 'any';
-        switch (pt) {
+    dynamicZoneTypeName(fieldName, interfaceName) {
+        return `${interfaceName}${fieldName.replace(/^./, (str) => str.toUpperCase())}DynamicZone`;
+    },
+    propertyTypeForStrapiType: (type) => {
+        switch (type) {
             case 'text':
             case 'richtext':
             case 'email':
@@ -66,358 +62,326 @@ const util = {
             case 'time':
                 return 'string';
             case 'enumeration':
-                if (enumm) {
-                    return model.enum ? util.toEnumName(fieldName, interfaceName) : 'string';
-                }
-                else {
-                    return model.enum ? `"${model.enum.join(`" | "`)}"` : 'string';
-                }
+            case 'dynamiczone':
+            case 'component':
+                throw new Error('unsupported (special case)');
             case 'date':
             case 'datetime':
-            case 'timestamp':
-                return 'Date';
-            case 'media':
-                return 'Blob';
             case 'json':
                 return '{ [key: string]: any }';
             case 'dynamiczone':
-                return 'any[]';
+                return '{ __component: string, [key: string]: any }[]';
             case 'decimal':
             case 'float':
             case 'biginteger':
             case 'integer':
                 return 'number';
             case 'string':
-            case 'number':
             case 'boolean':
-            default:
-                return pt;
+                return type;
         }
-    },
-    overrideToPropertyType: undefined,
-    toPropertyType(interfaceName, fieldName, model, enumm) {
-        return this.overrideToPropertyType
-            ? this.overrideToPropertyType(`${model.type}`, fieldName, interfaceName) || this.defaultToPropertyType(interfaceName, fieldName, model, enumm)
-            : this.defaultToPropertyType(interfaceName, fieldName, model, enumm);
-    },
-    defaultToPropertyname(fieldName) {
-        return fieldName;
-    },
-    overrideToPropertyName: undefined,
-    toPropertyName(fieldName, interfaceName) {
-        return this.overrideToPropertyName ? this.overrideToPropertyName(fieldName, interfaceName) || this.defaultToPropertyname(fieldName) : this.defaultToPropertyname(fieldName);
     },
     excludeField: undefined,
     addField: undefined,
 };
-const findModel = (structure, name) => {
-    return structure.filter((s) => s._modelName === name).shift();
+const buildModelMap = (allModels) => {
+    const modelMap = {};
+    const componentMap = {};
+    for (let model of allModels) {
+        if (model.file.type === 'api') {
+            modelMap[model.file.modelName] = model;
+        }
+        else if (model.file.type === 'component') {
+            componentMap[`${model.file.categoryName}.${model.file.modelName}`] = model;
+        }
+    }
+    return {
+        typeForModel: (name) => { var _a; return (_a = modelMap[name]) !== null && _a !== void 0 ? _a : null; },
+        typeForComponent: (name) => { var _a; return (_a = componentMap[name]) !== null && _a !== void 0 ? _a : null; },
+    };
 };
-/**
- * Transform a Strapi Attribute of component.
- *
- * @param attr IStrapiModelAttribute
- */
-const componentCompatible = (attr) => {
-    if (attr.type === 'component') {
-        let model = attr.component.split('.')[1]; //singular()
-        return attr.repeatable ? { collection: model } : { model: model };
-    }
-    return attr;
-};
-class Converter {
-    constructor(strapiModelsParse, config) {
-        this.config = config;
-        this.strapiModels = [];
-        if (!fs.existsSync(this.config.output))
-            fs.mkdirSync(this.config.output);
-        if (config.enumName && typeof config.enumName === 'function')
-            util.overrideToEnumName = config.enumName;
-        if (config.interfaceName && typeof config.interfaceName === 'function')
-            util.overrideToInterfaceName = config.interfaceName;
-        if (config.fieldType && typeof config.fieldType === 'function')
-            util.overrideToPropertyType = config.fieldType;
-        else if (config.type && typeof config.type === 'function')
-            util.overrideToPropertyType = config.type;
-        if (config.excludeField && typeof config.excludeField === 'function')
-            util.excludeField = config.excludeField;
-        if (config.addField && typeof config.addField === 'function')
-            util.addField = config.addField;
-        if (config.fieldName && typeof config.fieldName === 'function')
-            util.overrideToPropertyName = config.fieldName;
-        this.strapiModels = strapiModelsParse.map(m => {
-            return Object.assign(Object.assign({}, m), { name: m.info.name, snakeName: m._modelName, interfaceName: `I${change_case_1.pascalCase(m._modelName)}` });
-        });
-    }
-    run() {
-        return __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve, _reject) => {
-                // Write index.ts
-                const outputFile = path.resolve(this.config.output, 'api-types.d.ts');
-                // const output = this.strapiModels
-                //   .map(s => (this.config.nested ? `export * from './${s.snakeName}/${s.snakeName}';` : `export * from './${s.snakeName}';`))
-                //   .sort()
-                //   .join('\n');
-                // Write each interfaces
-                const declarations = [];
-                declarations.push(`declare type AvailableStrapiApiModels = ${this.strapiModels
-                    .filter((it) => !it.isComponent)
-                    .map((it) => `'${it._modelName}'`)
-                    .join(' | ')};\n\n`);
-                declarations.push(`declare type StrapiApiModels = {
-        ${this.strapiModels
-                    .filter((it) => !it.isComponent)
-                    .map((it) => `'${it._modelName}': {
-              Model: ${it.interfaceName}
-              Query: ${it.interfaceName}Query
-              Input: ${it.interfaceName}Input
-            }`)
-                    .join('\n')}
-      };\n\n`);
-                this.strapiModels.forEach(g => {
-                    const folder = this.config.nested ? path.resolve(this.config.output, g.snakeName) : this.config.output;
-                    if (!fs.existsSync(folder))
-                        fs.mkdirSync(folder);
-                    declarations.push(this.strapiModelToInterface(g));
-                    // fs.writeFile(path.resolve(folder, `${g.snakeName}.ts`), , { encoding: 'utf8' }, (err) => {
-                    //   count--;
-                    //   if (err) reject(err);
-                    //   if (count === 0) resolve(this.strapiModels.length);
-                    // });
-                });
-                fs.writeFileSync(outputFile, declarations.join('\n\n') + '\n', {
-                    encoding: 'utf8',
-                });
-                resolve(this.strapiModels.length);
-            });
-        });
-    }
-    strapiModelToInterface(m) {
-        const result = [];
-        //result.push(...this.strapiModelExtractImports(m));
-        //if (result.length > 0) result.push('')
-        const pushModel = (args) => {
-            var _a;
-            const { prefix = '', suffix = '', useNumberInsteadOfModel = false, makeGeneratedFieldsOptional = false, keepComponentCollections = true, } = args;
-            result.push('/**');
-            result.push(` * Model ${suffix} definition for ${m.name}`);
-            result.push(' */');
-            result.push(`declare type ${prefix}${m.interfaceName}${suffix} = {`);
-            if (makeGeneratedFieldsOptional === false || m.isComponent) {
-                result.push(`  ${this.strapiModelAttributeToProperty({
-                    interfaceName: m.interfaceName,
-                    name: 'id',
-                    a: {
-                        type: 'StrapiID',
-                        required: !makeGeneratedFieldsOptional,
-                    },
-                    useNumberInsteadOfModel,
-                    makeGeneratedFieldsOptional,
-                    interfacePrefix: '',
-                    interfaceSuffix: '',
-                })}`);
-            }
-            if (((_a = m.options) === null || _a === void 0 ? void 0 : _a.timestamps) === true && !makeGeneratedFieldsOptional) {
-                result.push(`  ${this.strapiModelAttributeToProperty({
-                    interfaceName: m.interfaceName,
-                    name: 'updated_at',
-                    a: {
-                        type: 'date',
-                        required: false
-                    },
-                    useNumberInsteadOfModel,
-                    makeGeneratedFieldsOptional,
-                    interfacePrefix: '',
-                    interfaceSuffix: '',
-                })}`);
-                result.push(`  ${this.strapiModelAttributeToProperty({
-                    interfaceName: m.interfaceName,
-                    name: 'created_at',
-                    a: {
-                        type: 'date',
-                        required: true
-                    },
-                    useNumberInsteadOfModel,
-                    makeGeneratedFieldsOptional,
-                    interfacePrefix: '',
-                    interfaceSuffix: '',
-                })}`);
-            }
-            if (m.attributes) {
-                for (const aName in m.attributes) {
-                    if ((util.excludeField && util.excludeField(m.interfaceName, aName)) || !m.attributes.hasOwnProperty(aName))
-                        continue;
-                    const attribute = m.attributes[aName];
-                    if (useNumberInsteadOfModel && ((!keepComponentCollections && attribute.component && attribute.repeatable) || attribute.collection)) {
-                        continue;
-                    }
-                    result.push(`  ${this.strapiModelAttributeToProperty({
-                        interfaceName: m.interfaceName,
-                        name: aName,
-                        a: m.attributes[aName],
-                        useNumberInsteadOfModel,
-                        makeGeneratedFieldsOptional,
-                        interfacePrefix: prefix,
-                        interfaceSuffix: suffix,
-                    })}`);
-                }
-            }
-            if (util.addField) {
-                let addFields = util.addField(m.interfaceName);
-                if (addFields && Array.isArray(addFields))
-                    for (let f of addFields) {
-                        result.push(`  ${f.name}: ${f.type};`);
-                    }
-            }
-            result.push('}');
-        };
-        pushModel({
-            useNumberInsteadOfModel: false,
-        });
-        pushModel({
-            suffix: 'Query',
-            useNumberInsteadOfModel: true,
-            keepComponentCollections: false,
-        });
-        pushModel({
-            suffix: 'Input',
-            useNumberInsteadOfModel: true,
-            makeGeneratedFieldsOptional: true,
-            keepComponentCollections: true,
-        });
-        if (this.config.enum) {
-            result.push('', ...this.strapiModelAttributeToEnum(m.interfaceName, m.attributes));
-        }
-        else {
-            result.push('', ...this.strapiModelAttributeToType(m.interfaceName, m.attributes));
-        }
-        return result.join('\n');
-    }
-    ;
-    /**
-     * Find all required models and import them.
-     *
-     * @param m Strapi model to examine
-     * @param structure Overall output structure
-     */
-    strapiModelExtractImports(m) {
-        const toImportDefinition = (name) => {
-            const found = findModel(this.strapiModels, name);
-            const toFolder = (f) => (this.config.nested ? `../${f.snakeName}/${f.snakeName}` : `./${f.snakeName}`);
-            return found ? `import { ${found.interfaceName} } from '${toFolder(found)}';` : '';
-        };
-        const imports = [];
-        if (m.attributes)
-            for (const aName in m.attributes) {
-                if (!m.attributes.hasOwnProperty(aName))
-                    continue;
-                const a = componentCompatible(m.attributes[aName]);
-                if ((a.collection || a.model) === m.name)
-                    continue;
-                const proposedImport = toImportDefinition(a.collection || a.model || '');
-                if (proposedImport)
-                    imports.push(proposedImport);
-            }
-        return imports
-            .filter((value, index, arr) => arr.indexOf(value) === index) // is unique
-            .sort();
-    }
-    ;
-    /**
-     * Convert a Strapi Attribute to a TypeScript property.
-     *
-     * @param interfaceName name of current interface
-     * @param name Name of the property
-     * @param a Attributes of the property
-     * @param structure Overall output structure
-     * @param enumm Use Enum type (or string literal types)
-     */
-    strapiModelAttributeToProperty(args) {
-        const { interfaceName, name, a: attribute, useNumberInsteadOfModel, makeGeneratedFieldsOptional, interfacePrefix, interfaceSuffix, } = args;
-        let a = attribute;
-        const findModelName = (model) => {
-            const result = findModel(this.strapiModels, model);
-            if (!result && model !== '*')
-                console.debug(`type '${model}' unknown on ${interfaceName}[${name}] => fallback to 'any'. Add in the input arguments the folder that contains *.settings.json with info.name === '${model}'`);
-            return result
-                ? `${interfacePrefix}${result.interfaceName}${interfaceSuffix}`
-                : 'any';
-        };
-        const isRequired = a.required || a.collection || a.repeatable || (!makeGeneratedFieldsOptional && a.generated);
-        //const required = isRequired ? '' : '?';
-        const optional = makeGeneratedFieldsOptional && a.generated !== undefined ? '?' : '';
-        const nullable = isRequired || (a.generated === true) ? '' : 'null | ';
-        a = componentCompatible(a);
-        const collection = a.collection ? '[]' : '';
-        let propType;
-        if (a.collection !== undefined) {
-            if (attribute.component !== undefined) {
-                propType = findModelName(a.collection);
-            }
-            else {
-                propType = findModelName(a.collection);
-            }
-        }
-        else if (a.model !== undefined) {
-            if (attribute.component !== undefined) {
-                propType = findModelName(a.model);
-            }
-            else {
-                propType = useNumberInsteadOfModel
-                    ? 'number'
-                    : `${findModelName(a.model)} | number`;
-            }
-        }
-        else {
-            if (a.type !== undefined) {
-                propType = util.toPropertyType(interfaceName, name, a, true);
-            }
-            else {
-                propType = 'unknown';
-            }
-        }
-        const fieldName = util.toPropertyName(name, interfaceName);
-        return `${fieldName}${optional}: ${nullable}${propType}${collection};`;
-    }
-    ;
-    /**
-     * Convert all Strapi Enum to TypeScript Enumeration.
-     *
-     * @param interfaceName name of current interface
-     * @param a Attributes
-     */
-    strapiModelAttributeToEnum(interfaceName, attributes) {
-        const enums = [];
-        for (const aName in attributes) {
-            if (!attributes.hasOwnProperty(aName))
-                continue;
-            if (attributes[aName].type === 'enumeration') {
-                enums.push(`declare enum ${util.toEnumName(aName, interfaceName)} {`);
-                attributes[aName].enum.forEach(e => {
-                    enums.push(`  ${e} = "${e}",`);
-                });
-                enums.push(`}\n`);
-            }
-        }
-        return enums;
-    }
-    strapiModelAttributeToType(interfaceName, attributes) {
-        const types = [];
-        for (const aName in attributes) {
-            if (!attributes.hasOwnProperty(aName))
-                continue;
-            if (attributes[aName].type === 'enumeration') {
-                types.push(`declare type ${util.toEnumName(aName, interfaceName)} = ${attributes[aName].enum.map(it => `'${it}'`).join(' | ')};`);
-            }
-        }
-        return types;
-    }
-}
 /**
  * Export a StrapiModel to a TypeScript interface
  */
-const convert = (strapiModels, config) => __awaiter(void 0, void 0, void 0, function* () {
-    return new Converter(strapiModels, config).run();
+const convert = (discoveredStrapiModels, config) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!fs.existsSync(config.output))
+        fs.mkdirSync(config.output);
+    if (config.excludeField && typeof config.excludeField === 'function')
+        Utils.excludeField = config.excludeField;
+    if (config.addField && typeof config.addField === 'function')
+        Utils.addField = config.addField;
+    const strapiModels = discoveredStrapiModels.map(model => {
+        return Object.assign(Object.assign({}, model), { name: model.definition.info.name, snakeName: model.file.modelName, typeName: `I${change_case_1.pascalCase(model.file.modelName)}` });
+    });
+    // Write index.ts
+    const outputFile = path.resolve(config.output, 'api-types.d.ts');
+    const declarations = [];
+    declarations.push(`declare type AvailableStrapiApiModels = ${strapiModels
+        .filter((it) => it.file.type !== 'component')
+        .map((it) => `'${it.file.modelName}'`)
+        .join(' | ')};\n\n`);
+    declarations.push(`declare type StrapiApiModels = {
+    ${strapiModels
+        .filter((it) => it.file.type !== 'component')
+        .map((it) => `'${it.file.modelName}': {
+          Model: ${it.typeName}
+          Query: ${it.typeName}Query
+          Input: ${it.typeName}Input
+        }`)
+        .join('\n')}
+  };\n\n`);
+    const modelMap = buildModelMap(strapiModels);
+    strapiModels.forEach(model => {
+        declarations.push(strapiModelToInterface({
+            strapiModel: model,
+            modelMap,
+        }));
+    });
+    fs.writeFileSync(outputFile, declarations.join('\n\n') + '\n', {
+        encoding: 'utf8',
+    });
 });
 exports.convert = convert;
+/**
+ * strapiModelToInterface
+ */
+const strapiModelToInterface = (args) => {
+    const { strapiModel, modelMap, } = args;
+    const result = [];
+    const pushModel = (args) => {
+        var _a;
+        const { prefix = '', suffix = '', useNumberInsteadOfModel = false, makeGeneratedFieldsOptional = false, keepComponentCollections = true, } = args;
+        result.push('/**');
+        result.push(` * Model ${suffix} definition for ${strapiModel.name}`);
+        result.push(' */');
+        result.push(`declare type ${prefix}${strapiModel.typeName}${suffix} = {`);
+        if (makeGeneratedFieldsOptional === false || strapiModel.file.type === 'component') {
+            result.push(`  ${strapiModelAttributeToProperty({
+                type: 'custom',
+                strapiType: 'ID',
+                required: !makeGeneratedFieldsOptional,
+            }, {
+                modelMap,
+                interfaceName: strapiModel.typeName,
+                name: 'id',
+                useNumberInsteadOfModel,
+                makeGeneratedFieldsOptional,
+                interfacePrefix: '',
+                interfaceSuffix: '',
+            })}`);
+        }
+        if (((_a = strapiModel.definition.options) === null || _a === void 0 ? void 0 : _a.timestamps) === true && !makeGeneratedFieldsOptional) {
+            result.push(`  ${strapiModelAttributeToProperty({
+                type: 'custom',
+                strapiType: 'datetime',
+                required: true,
+            }, {
+                modelMap,
+                interfaceName: strapiModel.typeName,
+                name: 'updated_at',
+                useNumberInsteadOfModel,
+                makeGeneratedFieldsOptional,
+                interfacePrefix: '',
+                interfaceSuffix: '',
+            })}`);
+            result.push(`  ${strapiModelAttributeToProperty({
+                type: 'custom',
+                strapiType: 'datetime',
+                required: true,
+            }, {
+                modelMap,
+                interfaceName: strapiModel.typeName,
+                name: 'created_at',
+                useNumberInsteadOfModel,
+                makeGeneratedFieldsOptional,
+                interfacePrefix: '',
+                interfaceSuffix: '',
+            })}`);
+        }
+        const attributes = strapiModel.definition.attributes;
+        if (attributes) {
+            for (const aName in attributes) {
+                if ((Utils.excludeField && Utils.excludeField(strapiModel.typeName, aName)) || !attributes.hasOwnProperty(aName))
+                    continue;
+                const attribute = attributes[aName];
+                if (useNumberInsteadOfModel && ((!keepComponentCollections && strapi_model_1.strapiAttributeIsComponent(attribute) && attribute.repeatable) || strapi_model_1.strapiAttributeIsCollection(attribute))) {
+                    continue;
+                }
+                result.push(`  ${strapiModelAttributeToProperty({
+                    type: 'from-strapi',
+                    definition: attributes[aName],
+                }, {
+                    modelMap,
+                    interfaceName: strapiModel.typeName,
+                    name: aName,
+                    useNumberInsteadOfModel,
+                    makeGeneratedFieldsOptional,
+                    interfacePrefix: prefix,
+                    interfaceSuffix: suffix,
+                })}`);
+            }
+        }
+        if (Utils.addField) {
+            let addFields = Utils.addField(strapiModel.typeName);
+            if (addFields && Array.isArray(addFields))
+                for (let f of addFields) {
+                    result.push(`  ${f.name}: ${f.type};`);
+                }
+        }
+        result.push('}');
+    };
+    pushModel({
+        useNumberInsteadOfModel: false,
+    });
+    pushModel({
+        suffix: 'Query',
+        useNumberInsteadOfModel: true,
+        keepComponentCollections: false,
+    });
+    pushModel({
+        suffix: 'Input',
+        useNumberInsteadOfModel: true,
+        makeGeneratedFieldsOptional: true,
+        keepComponentCollections: true,
+    });
+    result.push('', ...strapiModelAttributeToType(strapiModel, modelMap));
+    return result.join('\n');
+};
+const printTypescriptProperty = (args) => {
+    const parts = [];
+    parts.push(args.name);
+    if (args.optional) {
+        parts.push('?');
+    }
+    parts.push(': ');
+    if (args.nullable) {
+        parts.push('null | ');
+    }
+    parts.push(args.type);
+    if (args.collection) {
+        parts.push('[]');
+    }
+    return parts.join('');
+};
+/**
+ * Convert a Strapi Attribute to a TypeScript property.
+ *
+ * @param interfaceName name of current interface
+ * @param name Name of the property
+ * @param a Attributes of the property
+ * @param structure Overall output structure
+ * @param enumm Use Enum type (or string literal types)
+ */
+const strapiModelAttributeToProperty = (data, config) => {
+    const { modelMap, interfaceName, name, useNumberInsteadOfModel, makeGeneratedFieldsOptional, interfacePrefix, interfaceSuffix, } = config;
+    const findModelName = (model, type) => {
+        let result;
+        switch (type) {
+            case 'model':
+                result = modelMap.typeForModel(model);
+                break;
+            case 'component':
+                result = modelMap.typeForComponent(model);
+                break;
+        }
+        if (result === null && model !== '*') {
+            console.debug(`type '${model}' unknown on ${interfaceName}[${name}] => fallback to 'any'.`);
+        }
+        return result
+            ? `${interfacePrefix}${result.typeName}${interfaceSuffix}`
+            : 'any';
+    };
+    let collection = false;
+    let optional = false;
+    let type;
+    let required = false;
+    if (data.type === 'custom') {
+        required = data.required;
+        type = data.strapiType === 'ID' ? 'StrapiID' : Utils.propertyTypeForStrapiType(data.strapiType);
+    }
+    else {
+        const def = data.definition;
+        if (strapi_model_1.strapiAttributeIsModel(def)) {
+            type = useNumberInsteadOfModel ? 'number' : findModelName(def.model, 'model');
+        }
+        else if (strapi_model_1.strapiAttributeIsCollection(def)) {
+            collection = true;
+            required = true;
+            type = useNumberInsteadOfModel ? 'number' : findModelName(def.collection, 'model');
+        }
+        else {
+            switch (def.type) {
+                case 'enumeration':
+                    type = Utils.toEnumerationName(def, name, interfaceName);
+                    required = def.required === true;
+                    break;
+                case 'dynamiczone':
+                    type = def.components.map((it) => findModelName(it, 'component')).join(' | ');
+                    collection = true;
+                    required = def.required === true;
+                    break;
+                case 'component':
+                    type = findModelName(def.component, 'component');
+                    collection = def.repeatable === true;
+                    required = def.required === true || def.repeatable === true;
+                    break;
+                default:
+                    optional = def.generated === true && makeGeneratedFieldsOptional;
+                    type = Utils.propertyTypeForStrapiType(def.type);
+                    required = def.required === true || (def.generated === true && !makeGeneratedFieldsOptional);
+                    break;
+            }
+        }
+    }
+    return printTypescriptProperty({
+        name,
+        type,
+        collection,
+        optional,
+        nullable: !required,
+    });
+    // let propType: string;
+    // if (a.collection !== undefined) {
+    //   if (attribute.component !== undefined) {
+    //     propType = findModelName(a.collection);
+    //   } else {
+    //     propType = findModelName(a.collection);
+    //   }
+    // } else if(a.model !== undefined) {
+    //   if (attribute.component !== undefined) {
+    //     propType = findModelName(a.model);
+    //   } else {
+    //     propType = useNumberInsteadOfModel 
+    //       ? 'number' 
+    //       : `${findModelName(a.model)} | number`;
+    //   }
+    // } else {
+    //   if (a.type !== undefined) {
+    //     propType = Utils.toPropertyType(interfaceName, name, a, true);
+    //   } else {
+    //     propType = 'unknown';
+    //   }
+    // }
+    // const fieldName = Utils.toPropertyName(name, interfaceName);
+    // return `${fieldName}${optional}: ${nullable}${propType}${collection};`;
+};
+const strapiModelAttributeToType = (strapiModel, modelMap) => {
+    const types = [];
+    const attributes = strapiModel.definition.attributes;
+    for (const aName in attributes) {
+        if (!attributes.hasOwnProperty(aName))
+            continue;
+        const attribute = attributes[aName];
+        if (!strapi_model_1.strapiAttributeIsTyped(attribute))
+            continue;
+        if (attribute.type === 'enumeration') {
+            types.push(`declare type ${Utils.toEnumerationName(attribute, aName, strapiModel.typeName)} = ${attribute.enum.map(it => `'${it}'`).join(' | ')};`);
+        }
+        if (attribute.type === 'dynamiczone') {
+            const componentTypes = attribute.components.map((it) => `({ __component: '${it}' } & ${modelMap.typeForComponent(it)})`);
+            types.push(`declare type ${Utils.dynamicZoneTypeName(aName, strapiModel.typeName)} = ${componentTypes.join(' | ')};`);
+        }
+    }
+    return types;
+};
 //# sourceMappingURL=ts-exporter.js.map

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { IStrapiModel, StrapiFile } from './models/strapi-model';
+import { StrapiModel, StrapiFile, StrapiModelDefinitionFile } from './models/strapi-model';
 
 /**
  * Recursively walk a directory asynchronously and obtain all file names (with full path).
@@ -90,12 +90,9 @@ export async function findFilesFromMultipleDirectories(...files: string[]): Prom
 
 /*
  */
-export const importFiles = (files: StrapiFile[]) =>
-  new Promise<IStrapiModel[]>((resolve, reject) => {
-
+export const importFiles = (files: StrapiFile[]) => new Promise<StrapiModel[]>((resolve, reject) => {
     let pending = files.length;
-    const results: IStrapiModel[] = [];
-    const names: string[] = [];
+    const results: StrapiModel[] = [];
 
     files.forEach(f =>
       fs.readFile(f.path, { encoding: 'utf8' }, (err, data) => {
@@ -103,23 +100,11 @@ export const importFiles = (files: StrapiFile[]) =>
         if (err) reject(err);
         pending--;
 
-        let strapiModel = Object.assign(JSON.parse(data), { 
-          _filename: f.path,
-          _modelName: f.modelName,
-          isComponent: f.type === 'component',
-        })
-        if (strapiModel.info && strapiModel.info.name) {
-          let sameNameIndex = names.indexOf(strapiModel.info.name);
-          if (sameNameIndex === -1) {
-            results.push(strapiModel);
-            names.push(strapiModel.info.name)
-          } else {
-            console.warn(`Already have model '${strapiModel.info.name}' => skip ${results[sameNameIndex]._filename} use ${strapiModel._filename}`)
-            results[sameNameIndex] = strapiModel;
-          }
-        } else {
-          results.push(strapiModel);
-        }
+        const strapiDef = Object.assign(JSON.parse(data)) as StrapiModelDefinitionFile;
+        results.push({
+          file: f,
+          definition: strapiDef,
+        });
 
         if (pending === 0) {
           resolve(results);
