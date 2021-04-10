@@ -377,7 +377,7 @@ const strapiModelAttributeToType = (strapiModel, modelMap) => {
             types.push(`declare type ${Utils.toEnumerationName(attribute, aName, strapiModel.typeName)} = ${attribute.enum.map(it => `'${it}'`).join(' | ')};`);
         }
         if (attribute.type === 'dynamiczone') {
-            const componentTypes = attribute.components.map((it) => { var _a; return `({ __component: '${it}' } & I${(_a = modelMap.typeForComponent(it)) === null || _a === void 0 ? void 0 : _a.typeName})`; });
+            const componentTypes = attribute.components.map((it) => { var _a; return `({ __component: '${it}' } & ${(_a = modelMap.typeForComponent(it)) === null || _a === void 0 ? void 0 : _a.typeName})`; });
             types.push(`declare type ${Utils.dynamicZoneTypeName(aName, strapiModel.typeName)} = ${componentTypes.join(' | ')};`);
         }
     }
