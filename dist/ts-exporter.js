@@ -67,10 +67,9 @@ const Utils = {
                 throw new Error('unsupported (special case)');
             case 'date':
             case 'datetime':
+                return 'Date';
             case 'json':
                 return '{ [key: string]: any }';
-            case 'dynamiczone':
-                return '{ __component: string, [key: string]: any }[]';
             case 'decimal':
             case 'float':
             case 'biginteger':
@@ -316,7 +315,7 @@ const strapiModelAttributeToProperty = (data, config) => {
                     required = def.required === true;
                     break;
                 case 'dynamiczone':
-                    type = def.components.map((it) => findModelName(it, 'component')).join(' | ');
+                    type = Utils.dynamicZoneTypeName(name, interfaceName);
                     collection = true;
                     required = def.required === true;
                     break;
@@ -378,7 +377,7 @@ const strapiModelAttributeToType = (strapiModel, modelMap) => {
             types.push(`declare type ${Utils.toEnumerationName(attribute, aName, strapiModel.typeName)} = ${attribute.enum.map(it => `'${it}'`).join(' | ')};`);
         }
         if (attribute.type === 'dynamiczone') {
-            const componentTypes = attribute.components.map((it) => `({ __component: '${it}' } & ${modelMap.typeForComponent(it)})`);
+            const componentTypes = attribute.components.map((it) => { var _a; return `({ __component: '${it}' } & I${(_a = modelMap.typeForComponent(it)) === null || _a === void 0 ? void 0 : _a.typeName})`; });
             types.push(`declare type ${Utils.dynamicZoneTypeName(aName, strapiModel.typeName)} = ${componentTypes.join(' | ')};`);
         }
     }
