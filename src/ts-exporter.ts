@@ -434,7 +434,7 @@ const strapiModelAttributeToProperty = (
     const def = data.definition;
     
     if (strapiAttributeIsModel(def)) {
-      type = useNumberInsteadOfModel ? 'number' : findModelName(def.model, 'model');
+      type = useNumberInsteadOfModel ? 'number' : `${findModelName(def.model, 'model')} | number`;
     } else if (strapiAttributeIsCollection(def)) {
       collection = true;
       required = true;
