@@ -239,6 +239,7 @@ const strapiModelToInterface = (args) => {
         suffix: 'Query',
         useNumberInsteadOfModel: true,
         keepComponentCollections: false,
+        skipDynamicZone: true,
     });
     pushModel({
         suffix: 'Input',
