@@ -43,6 +43,7 @@ const Utils = {
       case 'password':
       case 'uid':
       case 'time':
+      case 'biginteger':
         return 'string';
       case 'enumeration':
       case 'dynamiczone':
@@ -55,7 +56,6 @@ const Utils = {
         return '{ [key: string]: any }';
       case 'decimal':
       case 'float':
-      case 'biginteger':
       case 'integer':
         return 'number';
       case 'string':
