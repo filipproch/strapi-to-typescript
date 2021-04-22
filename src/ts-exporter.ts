@@ -109,7 +109,11 @@ export const convert = async (discoveredStrapiModels: StrapiModel[], config: ICo
       ...model,
       name: model.definition.info.name,
       snakeName: model.file.modelName,
-      typeName: `I${pascalCase(model.file.modelName)}`,
+      typeName: `I${pascalCase(
+        model.file.categoryName
+          ? `${model.file.categoryName}${model.file.modelName}`
+          : model.file.modelName,
+      )}`,
     };
   });
 

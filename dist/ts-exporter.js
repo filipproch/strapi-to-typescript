@@ -110,7 +110,9 @@ const convert = (discoveredStrapiModels, config) => __awaiter(void 0, void 0, vo
     if (config.addField && typeof config.addField === 'function')
         Utils.addField = config.addField;
     const strapiModels = discoveredStrapiModels.map(model => {
-        return Object.assign(Object.assign({}, model), { name: model.definition.info.name, snakeName: model.file.modelName, typeName: `I${change_case_1.pascalCase(model.file.modelName)}` });
+        return Object.assign(Object.assign({}, model), { name: model.definition.info.name, snakeName: model.file.modelName, typeName: `I${change_case_1.pascalCase(model.file.categoryName
+                ? `${model.file.categoryName}${model.file.modelName}`
+                : model.file.modelName)}` });
     });
     // Write index.ts
     const outputFile = path.resolve(config.output, 'api-types.d.ts');
